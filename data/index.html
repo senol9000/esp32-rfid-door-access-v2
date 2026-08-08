@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 Kapı Kontrol</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#e2e8f0;--muted:#94a3b8;--accent:#38bdf8;--ok:#4ade80;--err:#f87171;--warn:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+/* Sidebar */
+aside{width:232px;background:var(--card);border-right:1px solid var(--border);padding:14px 10px;position:sticky;top:0;height:100vh;overflow-y:auto;transition:transform .25s ease}
+aside .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:1rem;padding:6px 10px 14px}
+aside .brand-sub{display:block;font-weight:400;font-size:.68rem;color:var(--muted);letter-spacing:.08em}
+.nav-group{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 8px 6px}
+aside a{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;color:var(--text);text-decoration:none;font-size:.88rem;cursor:pointer}
+aside a:hover{background:rgba(56,189,248,.08)}
+aside a.active{background:rgba(56,189,248,.15);color:var(--accent)}
+aside a.soon{color:var(--muted);opacity:.55}
+/* Main */
+main{flex:1;padding:18px;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.topbar .burger{display:none;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:1rem}
+.topbar .spacer{flex:1}
+.lang button{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.85rem}
+.app-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-top:20px;padding:12px 4px 2px;border-top:1px solid var(--border);color:var(--muted);font-size:.78rem}
+.app-footer strong{color:var(--text)}
+.login-sub{font-size:.78rem;color:var(--muted);letter-spacing:.12em;margin-bottom:14px}
+.page{display:none}
+.page.active{display:block}
+.page h2{font-size:1.15rem;margin-bottom:14px}
+.page-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px}
+.stat-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat-value{font-size:1.25rem;font-weight:700;margin-top:6px;word-break:break-all}
+/* Buttons */
+.btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 14px;font-size:.88rem;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0f172a;font-weight:600}
+.btn.danger{border-color:rgba(248,113,113,.4);color:var(--err)}
+.btn.mini{padding:4px 9px;font-size:.78rem}
+/* Forms */
+label{display:block;font-size:.8rem;color:var(--muted);margin:10px 0 4px}
+input,select{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.92rem}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row2 label{white-space:nowrap}
+.check{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:.85rem;color:var(--text)}
+.check input{width:auto}
+/* Toolbar */
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input{flex:1;min-width:140px}
+.toolbar select{width:auto}
+/* Table */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:640px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+tr:last-child td{border-bottom:none}
+td.empty{text-align:center;color:var(--muted);padding:24px}
+/* Badges */
+.badge{padding:2px 10px;border-radius:999px;font-size:.72rem;font-weight:600;white-space:nowrap}
+.badge.ok{background:rgba(74,222,128,.15);color:var(--ok)}
+.badge.err{background:rgba(248,113,113,.15);color:var(--err)}
+.badge.ap{background:rgba(56,189,248,.15);color:var(--accent)}
+.badge.warn{background:rgba(251,191,36,.15);color:var(--warn)}
+.badge.mut{background:rgba(148,163,184,.15);color:var(--muted)}
+/* Scan */
+.scan-row{display:flex;gap:8px;margin-top:12px}
+.scan-row input{flex:1}
+.net-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-top:6px;cursor:pointer;font-size:.85rem}
+.net-item:hover{border-color:var(--accent)}
+/* Modal */
+.modal{display:none;position:fixed;inset:0;background:rgba(2,6,23,.7);z-index:50;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto}
+.modal.open{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;margin-top:4vh}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)}
+.modal-head h3{font-size:1rem}
+.modal-head .x{background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer}
+.modal-body{padding:4px 16px 8px}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--border)}
+/* Banner */
+.banner{display:none;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.4);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:.85rem;margin-bottom:14px}
+.banner.show{display:block}
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 18px;border-radius:8px;font-size:.85rem;display:none;max-width:90vw;z-index:99;text-align:center}
+#toast.show{display:block}
+#toast.ok{background:#14532d;color:#bbf7d0}
+#toast.err{background:#7f1d1d;color:#fecaca}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.hint{font-size:.75rem;color:var(--muted);margin-top:6px}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.day-card{margin-top:10px}
+.day-head{margin-bottom:8px}
+.range-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0}
+.range-row input[type=time]{width:110px}
+.range-row .btn{padding:4px 8px;font-size:.75rem}
+.range-list{border-top:1px dashed var(--border);margin:6px 0 8px}
+/* Login overlay */
+.login-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;align-items:center;justify-content:center;padding:20px}
+.login-overlay.show{display:flex}
+.login-box{max-width:380px;width:100%;padding:24px}
+/* Progress bar */
+.progress{height:10px;border-radius:999px;background:var(--border);overflow:hidden}
+.progress-bar{height:100%;background:var(--accent);border-radius:999px;transition:width .3s}
+@media(max-width:760px){
+  .app{flex-direction:column}
+  aside{position:fixed;left:0;top:0;z-index:40;transform:translateX(-105%);box-shadow:0 0 30px rgba(0,0,0,.5)}
+  aside.open{transform:translateX(0)}
+  .topbar .burger{display:block}
+  main{padding:12px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside id="sidebar">
+  <div class="brand">🚪 <span style="line-height:1.2">ESP32 Kapı Kontrol<span class="brand-sub">AKEVTEK</span></span></div>
+  <nav>
+    <div class="nav-group" data-i18n="general">Genel</div>
+    <a data-page="dashboard" class="active" onclick="go('dashboard')">📊 <span data-i18n="navDashboard">Dashboard</span></a>
+    <a data-page="users" onclick="go('users')">👥 <span data-i18n="navUsers">Kullanıcılar</span></a>
+    <a data-page="logs" onclick="go('logs')">📋 <span data-i18n="navLogs">Erişim Logları</span></a>
+    <a data-page="events" onclick="go('events')">🔔 <span data-i18n="navEvents">Sistem Olayları</span></a>
+    <div class="nav-group" data-i18n="config">Yapılandırma</div>
+    <a data-page="wifi" onclick="go('wifi')">📶 <span data-i18n="navWifi">Ağ Ayarları</span></a>
+    <a data-page="mqtt" onclick="go('mqtt')">🔌 <span data-i18n="navMqtt">MQTT</span></a>
+    <a data-page="hardware" onclick="go('hardware')">🔧 <span data-i18n="navHw">Donanım</span></a>
+    <a data-page="schedules" onclick="go('schedules')">🕐 <span data-i18n="navSchedules">Geçiş Saatleri</span></a>
+    <a data-page="holidays" onclick="go('holidays')">🎉 <span data-i18n="navHolidays">Tatiller</span></a>
+    <div class="nav-group" data-i18n="navSystem2">Sistem</div>
+    <a data-page="security" onclick="go('security')">🔐 <span data-i18n="navSecurity">Güvenlik</span></a>
+    <a data-page="backup" onclick="go('backup')">💾 <span data-i18n="navBackup">Yedekleme</span></a>
+    <a data-page="firmware" onclick="go('firmware')">🚀 <span data-i18n="navFw">Firmware</span></a>
+  </nav>
+</aside>
+
+<main>
+  <div class="topbar">
+    <button class="burger" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+    <strong id="pageTitle">Dashboard</strong>
+    <div class="spacer"></div>
+    <div class="lang"><button id="langBtn" onclick="toggleLang()">EN</button></div>
+    <div class="lang" style="margin-left:8px"><button id="logoutBtn" onclick="doLogout()" style="display:none">↪ <span data-i18n="logout">Çıkış Yap</span></button></div>
+  </div>
+
+  <div class="banner" id="setupBanner">⚠️ <span data-i18n="setupHint">Kurulum tamamlanmadı. Lütfen önce Ağ Ayarları sayfasından WiFi yapılandırın.</span></div>
+
+  <!-- Dashboard -->
+  <section class="page active" id="page-dashboard">
+    <div class="stats">
+      <div class="stat"><div class="stat-label" data-i18n="sTotal">Toplam Kart</div><div class="stat-value" id="dTotal">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sAdmin">Admin</div><div class="stat-value" id="dAdmins">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sToday">Bugünkü Geçiş</div><div class="stat-value" id="dToday">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sTodayAR">İzin / Red</div><div class="stat-value" id="dTodayAR">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sRssi">WiFi Sinyal</div><div class="stat-value" id="dRssi">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sIp">IP</div><div class="stat-value" id="dIp">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sHeap">Heap</div><div class="stat-value" id="dHeap">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sCpu">CPU</div><div class="stat-value" id="dCpu">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sFlash">Flash</div><div class="stat-value" id="dFlash">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sUptime">Çalışma Süresi</div><div class="stat-value" id="dUptime">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sNtp">NTP</div><div class="stat-value" id="dNtp">-</div></div>
+      <div class="stat"><div class="stat-label" data-i18n="sTime">Saat</div><div class="stat-value" id="dTime">-</div></div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="sLast">Son Geçişler</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th data-i18n="hTime">Tarih</th><th data-i18n="hUid">UID</th><th data-i18n="hName">Ad Soyad</th><th data-i18n="hResult">Sonuç</th><th data-i18n="hReason">Sebep</th></tr></thead>
+        <tbody id="lastRows"><tr><td class="empty" colspan="5" data-i18n="noData">Kayıt yok</td></tr></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- Kullanıcılar -->
+  <section class="page" id="page-users">
+    <div class="page-head">
+      <h2 data-i18n="navUsers">Kullanıcılar</h2>
+      <button class="btn primary" onclick="openUser()">+ <span data-i18n="addUser">Yeni Kullanıcı</span></button>
+    </div>
+    <div class="toolbar">
+      <input id="userSearch" placeholder="UID / ad / departman..." data-i18n-ph="phUser" oninput="renderUsers()">
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>UID</th><th data-i18n="hCardName">Kart Adı</th><th data-i18n="hName">Ad Soyad</th><th data-i18n="hDept">Departman</th><th data-i18n="hType">Tip</th><th data-i18n="hStatus">Durum</th><th data-i18n="hLast">Son Geçiş</th><th data-i18n="hCount">Geçiş</th><th></th></tr></thead>
+      <tbody id="userRows"></tbody>
+    </table></div>
+  </section>
+
+  <!-- Erişim Logları -->
+  <section class="page" id="page-logs">
+    <div class="page-head">
+      <h2 data-i18n="navLogs">Erişim Logları</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="downloadCsv()">⬇ <span data-i18n="csv">CSV İndir</span></button>
+        <button class="btn danger" onclick="clearLogs()">🗑 <span data-i18n="clear">Temizle</span></button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <select id="logResult" onchange="loadLogs()">
+        <option value="all" data-i18n="all">Tümü</option>
+        <option value="allowed" data-i18n="allowed">İzin Verildi</option>
+        <option value="denied" data-i18n="denied">Reddedildi</option>
+      </select>
+      <input id="logSearch" placeholder="UID veya ad..." data-i18n-ph="phLogSearch" oninput="loadLogs()">
+      <select id="logLimit" onchange="loadLogs()"><option>50</option><option selected>100</option><option>200</option></select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th data-i18n="hTime">Tarih</th><th data-i18n="hUid">UID</th><th data-i18n="hName">Ad Soyad</th><th data-i18n="hDoor">Kapı</th><th data-i18n="hResult">Sonuç</th><th data-i18n="hReason">Sebep</th><th>IP</th><th>RSSI</th></tr></thead>
+      <tbody id="logRows"><tr><td class="empty" colspan="8" data-i18n="noData">Kayıt yok</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- Sistem Olayları -->
+  <section class="page" id="page-events">
+    <div class="page-head">
+      <h2 data-i18n="navEvents">Sistem Olayları</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="downloadEventCsv()">⬇ <span data-i18n="csv">CSV İndir</span></button>
+        <button class="btn danger" onclick="clearEvents()">🗑 <span data-i18n="clear">Temizle</span></button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <select id="eventType" onchange="loadEvents()">
+        <option value="" data-i18n="all">Tümü</option>
+        <option value="boot" data-i18n="evBoot">Açılış</option>
+        <option value="restart" data-i18n="evRestart">Yeniden Başlatma</option>
+        <option value="wifi_connected" data-i18n="evWifiOn">WiFi Bağlandı</option>
+        <option value="wifi_disconnected" data-i18n="evWifiOff">WiFi Koptu</option>
+        <option value="mqtt_connected" data-i18n="evMqttOn">MQTT Bağlandı</option>
+        <option value="mqtt_error" data-i18n="evMqttErr">MQTT Hata</option>
+        <option value="ntp_sync" data-i18n="evNtp">NTP Senkron</option>
+        <option value="config_save" data-i18n="evCfgSave">Yapılandırma Kaydı</option>
+        <option value="config_restore" data-i18n="evCfgRestore">Yapılandırma Geri Yükleme</option>
+        <option value="login" data-i18n="evLogin">Giriş</option>
+        <option value="logout" data-i18n="evLogout">Çıkış</option>
+        <option value="unauthorized" data-i18n="evUnauth">Yetkisiz Erişim</option>
+        <option value="user_added" data-i18n="evUserAdd">Kullanıcı Eklendi</option>
+        <option value="user_deleted" data-i18n="evUserDel">Kullanıcı Silindi</option>
+        <option value="flash_error" data-i18n="evFlashErr">Flash Hatası</option>
+        <option value="json_parse_error" data-i18n="evJsonErr">JSON Parse Hatası</option>
+      </select>
+      <input id="eventSearch" placeholder="Ara..." data-i18n-ph="phEventSearch" oninput="loadEvents()">
+      <select id="eventLimit" onchange="loadEvents()"><option>50</option><option selected>100</option><option>200</option></select>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th data-i18n="hTime">Tarih</th><th data-i18n="hType">Tip</th><th data-i18n="hMsg">Mesaj</th></tr></thead>
+      <tbody id="eventRows"><tr><td class="empty" colspan="3" data-i18n="noData">Kayıt yok</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- Ağ Ayarları -->
+  <section class="page" id="page-wifi">
+    <div class="card">
+      <h3 data-i18n="wifiTitle">Ağ Ayarları</h3>
+      <div class="scan-row">
+        <input id="ssidInput" placeholder="SSID" autocomplete="off">
+        <button onclick="scanWifi()" id="scanBtn" data-i18n="scan">Tara</button>
+      </div>
+      <div id="networks"></div>
+      <label data-i18n="pass">Şifre</label>
+      <input type="password" id="passInput" placeholder="••••••••" autocomplete="off">
+      <label data-i18n="hostname">Cihaz Adı (hostname)</label>
+      <input id="hostInput" placeholder="esp32-door" autocomplete="off">
+    </div>
+    <div class="card">
+      <h3 data-i18n="ntpTitle">Saat Ayarları (NTP)</h3>
+      <label>NTP Sunucusu</label>
+      <input id="ntpServer" placeholder="pool.ntp.org" autocomplete="off">
+      <label data-i18n="utcOffset">UTC Ofseti (dakika)</label>
+      <input type="number" id="ntpOffset" step="15" value="180">
+      <div class="check"><input type="checkbox" id="ntpDst"><span data-i18n="dst">Avrupa yaz/kış saati otomatik</span></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveConfig()" data-i18n="save">Kaydet &amp; Bağlan</button>
+      <button class="btn" onclick="restart()" data-i18n="restart">Yeniden Başlat</button>
+    </div>
+  </section>
+
+  <!-- MQTT -->
+  <section class="page" id="page-mqtt">
+    <div class="card">
+      <h3 data-i18n="navMqtt">MQTT Ayarları</h3>
+      <div class="mqtt-status" id="mqttStatus" style="margin-bottom:12px"></div>
+      <div class="check"><input type="checkbox" id="mqttEnabled"><span data-i18n="mqttEnabled">MQTT etkin</span></div>
+      <label data-i18n="mqttServer">Broker Adresi (sunucu)</label>
+      <input id="mqttServer" placeholder="192.168.1.100" autocomplete="off">
+      <label data-i18n="mqttPort">Port</label>
+      <input type="number" id="mqttPort" value="1883">
+      <label data-i18n="mqttUser">Kullanıcı Adı (opsiyonel)</label>
+      <input id="mqttUser" autocomplete="off">
+      <label data-i18n="mqttPass">Şifre (opsiyonel)</label>
+      <input type="password" id="mqttPass" autocomplete="off">
+      <label data-i18n="mqttClient">İstemci Kimliği</label>
+      <input id="mqttClientId" value="esp32-door" autocomplete="off">
+      <label data-i18n="mqttPrefix">Topic Öneki</label>
+      <input id="mqttTopicPrefix" value="esp32door" autocomplete="off">
+      <label data-i18n="mqttDiscovery">Home Assistant Discovery Öneki</label>
+      <input id="mqttDiscovery" value="homeassistant" autocomplete="off">
+    </div>
+    <div class="card">
+      <h3 data-i18n="mqttTopics">Topic Yapısı</h3>
+      <div class="mono topic-list" id="mqttTopics"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveMqtt()" data-i18n="save">Kaydet</button>
+    </div>
+  </section>
+
+  <!-- Donanım -->
+  <section class="page" id="page-hardware">
+    <div class="card">
+      <h3 data-i18n="hwReader">RFID Okuyucu</h3>
+      <div style="margin:8px 0">
+        <span class="badge" id="rfidState">-</span>
+      </div>
+      <label data-i18n="hwReaderType">Okuyucu Tipi</label>
+      <select id="rfidType" onchange="toggleRfidSections()">
+        <option value="auto" data-i18n="hwAuto">Otomatik Algıla</option>
+        <option value="hz1050">HZ1050 (UART)</option>
+        <option value="mfrc522">MFRC522 (SPI)</option>
+      </select>
+      <div id="rfidHzSection" style="display:none;margin-top:10px">
+        <h4 data-i18n="hwHzTitle">HZ1050 — UART Ayarları</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label data-i18n="hwRxPin">RX Pin (okuyucu TX)</label>
+            <input type="number" id="rfidHzRx" value="25"></div>
+          <div><label data-i18n="hwTxPin">TX Pin (okuyucu RX)</label>
+            <input type="number" id="rfidHzTx" value="26"></div>
+        </div>
+        <label data-i18n="hwBaud">Baud Hızı</label>
+        <select id="rfidHzBaud">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+        </select>
+      </div>
+      <div id="rfidRcSection" style="display:none;margin-top:10px">
+        <h4 data-i18n="hwRcTitle">MFRC522 — SPI Ayarları</h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div><label data-i18n="hwSckPin">SCK Pin</label>
+            <input type="number" id="rfidSck" value="18"></div>
+          <div><label data-i18n="hwMisoPin">MISO Pin</label>
+            <input type="number" id="rfidMiso" value="19"></div>
+          <div><label data-i18n="hwMosiPin">MOSI Pin</label>
+            <input type="number" id="rfidMosi" value="23"></div>
+          <div><label data-i18n="hwSdaPin">SS / SDA Pin</label>
+            <input type="number" id="rfidSda" value="5"></div>
+        </div>
+        <label data-i18n="hwRstPin">RST Pin</label>
+        <input type="number" id="rfidRst" value="21">
+      </div>
+      <div class="check"><input type="checkbox" id="rfidEnroll"><span data-i18n="enroll">Kart Oku (kayıt modu)</span></div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="hwRelay">Röle Çıkışı</h3>
+      <label>GPIO</label>
+      <input type="number" id="hwRelayPin" value="4">
+      <div class="check"><input type="checkbox" id="hwRelayActiveLow"><span data-i18n="hwActiveLow">Normalde Kapalı (aktifken LOW / NC)</span></div>
+      <label data-i18n="hwDuration">Aktif Süresi</label>
+      <select id="hwRelayMs">
+        <option value="500">0.5 sn</option>
+        <option value="1000" selected>1 sn</option>
+        <option value="2000">2 sn</option>
+        <option value="5000">5 sn</option>
+        <option value="10000">10 sn</option>
+      </select>
+    </div>
+    <div class="card">
+      <h3 data-i18n="hwOther">Diğer Çıkışlar / Girişler</h3>
+      <label data-i18n="hwBuzzer">Buzzer GPIO</label>
+      <input type="number" id="hwBuzzerPin" value="16">
+      <label data-i18n="hwLed">Durum LED GPIO</label>
+      <input type="number" id="hwLedPin" value="2">
+      <label data-i18n="hwDoorSensor">Kapı Sensörü GPIO</label>
+      <input type="number" id="hwDoorPin" value="17">
+      <div class="check"><input type="checkbox" id="hwDoorActiveLow" checked><span data-i18n="hwDoorActiveLow">Kapı açıkken LOW okunur</span></div>
+      <label data-i18n="hwExit">Çıkış Butonu GPIO</label>
+      <input type="number" id="hwExitPin" value="18">
+    </div>
+    <div class="card">
+      <h3 data-i18n="hwTest">Donanım Testi</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn primary" onclick="hwAction('open')">🔓 <span data-i18n="hwOpen">Kapıyı Aç</span></button>
+        <button class="btn" onclick="hwAction('close')">🔒 <span data-i18n="hwClose">Kapat</span></button>
+        <button class="btn" onclick="hwAction('beep')">🔊 <span data-i18n="hwBeep">Buzzer</span></button>
+        <button class="btn" onclick="hwAction('led')">💡 <span data-i18n="hwLed">LED</span></button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <span class="hint" style="align-self:center" data-i18n="hwMelodyHint">Melodi testi:</span>
+        <button class="btn sm" onclick="hwMelody('success')">✅ <span data-i18n="hwMelodyOk">Başarılı</span></button>
+        <button class="btn sm" onclick="hwMelody('denied')">⛔ <span data-i18n="hwMelodyDenied">Reddedildi</span></button>
+        <button class="btn sm" onclick="hwMelody('open')">🚪 <span data-i18n="hwMelodyOpen">Açılış</span></button>
+      </div>
+      <div class="hw-state" id="hwState" style="margin-top:12px"></div>
+    </div>
+    <div class="card" id="lcdCard">
+      <h3 data-i18n="lcdTitle">LCD (I2C 16x2)</h3>
+      <div class="check"><input type="checkbox" id="lcdEnabled"><span data-i18n="lcdEnable">LCD'yi etkinleştir</span></div>
+      <div style="margin-top:8px;margin-bottom:8px">
+        <span class="badge" id="lcdState" data-i18n="lcdDetecting">Algılanıyor...</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label data-i18n="lcdSda">SDA Pin</label>
+          <input type="number" id="lcdSdaPin" value="-1" placeholder="-1 = otomatik">
+        </div>
+        <div>
+          <label data-i18n="lcdScl">SCL Pin</label>
+          <input type="number" id="lcdSclPin" value="-1" placeholder="-1 = otomatik">
+        </div>
+      </div>
+      <label data-i18n="lcdAddr">I2C Adres (0 = otomatik, 0x27 / 0x3F yaygın)</label>
+      <input type="text" id="lcdAddress" value="0">
+      <label data-i18n="lcdCols">Sütun (16)</label>
+      <input type="number" id="lcdCols" value="16">
+      <label data-i18n="lcdRows">Satır (2)</label>
+      <input type="number" id="lcdRows" value="2">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn primary" onclick="lcdAction('scan')">🔍 <span data-i18n="lcdScan">Otomatik Algıla</span></button>
+        <button class="btn" onclick="lcdAction('test')">🖥️ <span data-i18n="lcdTest">Test</span></button>
+        <button class="btn" onclick="lcdAction('clear')">🧹 <span data-i18n="lcdClear">Temizle</span></button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveRfid()" data-i18n="hwSaveReader">Okuyucuyu Kaydet</button>
+      <button class="btn primary" onclick="saveGpio()" data-i18n="save">Kaydet (GPIO)</button>
+      <button class="btn primary" onclick="saveLcd()" data-i18n="save">Kaydet (LCD)</button>
+    </div>
+  </section>
+
+  <!-- Geçiş Saatleri -->
+  <section class="page" id="page-schedules">
+    <div class="page-head">
+      <h2 data-i18n="navSchedules">Geçiş Saatleri</h2>
+    </div>
+    <div class="card">
+      <label data-i18n="phUser">Kullanıcı (UID)</label>
+      <select id="schUser" onchange="loadSchedule()"></select>
+      <div class="check"><input type="checkbox" id="schEnabled" onchange="markSchDirty()"><span data-i18n="schEnabled">Zaman planı aktif</span></div>
+      <div class="hint" data-i18n="schHint">Her gün için birden çok aralık girebilirsiniz. Örn: 08:00-12:00, 13:00-18:00.</div>
+    </div>
+    <div id="schDays"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveSchedule()" data-i18n="save">Kaydet</button>
+      <button class="btn danger" onclick="deleteSchedule()" data-i18n="delSch">Planı Sil</button>
+    </div>
+  </section>
+
+  <!-- Tatiller -->
+  <section class="page" id="page-holidays">
+    <div class="page-head">
+      <h2 data-i18n="navHolidays">Tatiller</h2>
+      <button class="btn primary" onclick="openHolidayModal()">+ <span data-i18n="addHoliday">Tatil Ekle</span></button>
+    </div>
+    <div class="hint" data-i18n="holidayHint">Tatil günlerinde normal kartlar engellenir; admin kartlar geçer.</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th data-i18n="hDate">Tarih</th><th data-i18n="hName">Ad</th><th></th></tr></thead>
+      <tbody id="holidayRows"><tr><td class="empty" colspan="4" data-i18n="noData">Kayıt yok</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <!-- Güvenlik -->
+  <section class="page" id="page-security">
+    <div class="card">
+      <h3 data-i18n="navSecurity">Güvenlik Ayarları</h3>
+      <div class="hint" data-i18n="secHint">Web panelini korumak için bir şifre belirleyin. Şifre tuzlanmış PBKDF2-SHA256 olarak saklanır; düz metin asla kaydedilmez.</div>
+      <label data-i18n="secUsername">Kullanıcı Adı</label>
+      <input id="secUsername" autocomplete="off">
+      <label data-i18n="secNewPass">Yeni Şifre</label>
+      <input type="password" id="secPass" autocomplete="new-password">
+      <label data-i18n="secPass2">Yeni Şifre (tekrar)</label>
+      <input type="password" id="secPass2" autocomplete="new-password">
+      <label data-i18n="secTimeout">Oturum Zaman Aşımı (dakika)</label>
+      <input type="number" id="secTimeout" min="5" max="1440" value="60">
+      <div class="check"><input type="checkbox" id="secEnabled"><span data-i18n="secLock">Kilit aktif (giriş zorunlu)</span></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn primary" onclick="saveSecurity()" data-i18n="save">Kaydet</button>
+    </div>
+  </section>
+
+  <!-- Yedekleme -->
+  <section class="page" id="page-backup">
+    <div class="card">
+      <h3 data-i18n="navBackup">Yedekleme</h3>
+      <p class="hint" data-i18n="bkHint">Tüm ayarları, kullanıcıları, zaman planlarını, tatilleri ve logları tek bir JSON dosyası olarak dışa aktarır veya içe aktarır.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn primary" onclick="exportBackup()">⬇ <span data-i18n="bkExport">Yedeği İndir</span></button>
+        <button class="btn" onclick="document.getElementById('bkFile').click()">⬆ <span data-i18n="bkImport">Yedekten Geri Yükle</span></button>
+        <input type="file" id="bkFile" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+      </div>
+      <div class="hint" id="bkStatus" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <!-- Firmware -->
+  <section class="page" id="page-firmware">
+    <div class="card">
+      <h3 data-i18n="navFw">Firmware Güncelleme</h3>
+      <p class="hint" data-i18n="fwHint">.bin uzantılı firmware dosyasını seçin ve yükleyin. Güncelleme tamamlandığında cihaz otomatik yeniden başlar. Başarısız güncellemede önceki sürüme dönülür.</p>
+      <input type="file" id="fwFile" accept=".bin,application/octet-stream">
+      <button class="btn primary" onclick="uploadFirmware()" id="fwBtn">🚀 <span data-i18n="fwUpload">Firmware Yükle</span></button>
+      <div class="progress" id="fwProgress" style="display:none;margin-top:12px"><div class="progress-bar" id="fwBar" style="width:0%"></div></div>
+      <div class="hint" id="fwStatus" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    <span>© 2026 <strong>akevtek</strong> · ESP32 Kapı Kontrol</span>
+    <span id="fwVersion">v1.0.0</span>
+  </footer>
+</main>
+</div>
+
+<!-- Giriş ekranı -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="card login-box">
+    <h2 style="margin-bottom:4px">🚪 <span data-i18n="loginTitle">ESP32 Kapı Kontrol</span></h2>
+    <div class="login-sub">akevtek</div>
+    <p class="hint" style="margin-bottom:14px" data-i18n="loginHint">Devam etmek için giriş yapın.</p>
+    <label data-i18n="secUsername">Kullanıcı Adı</label>
+    <input id="loginUser" autocomplete="username">
+    <label data-i18n="pass">Şifre</label>
+    <input type="password" id="loginPass" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn primary" style="flex:1" onclick="doLogin()" data-i18n="loginBtn">Giriş Yap</button>
+    </div>
+    <div class="hint" id="loginErr" style="color:#e74c3c;margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- Kullanıcı modal -->
+<div class="modal" id="userModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3 id="userModalTitle">Yeni Kullanıcı</h3><button class="x" onclick="closeUserModal()">✕</button></div>
+    <div class="modal-body">
+      <label>UID <span style="opacity:.7" data-i18n="uidHint">(kart numarası)</span></label>
+      <div style="display:flex;gap:8px">
+        <input id="fUid" placeholder="A1B2C3D4" autocomplete="off" class="mono" style="flex:1">
+        <button class="btn" id="enrollBtn" onclick="toggleEnroll()">📡 <span data-i18n="enroll">Kart Oku</span></button>
+      </div>
+      <div class="hint" id="enrollHint" style="display:none" data-i18n="enrollHint">Kartı okuyucuya okutun...</div>
+      <label data-i18n="hCardName">Kart Adı</label>
+      <input id="fCardName" autocomplete="off">
+      <label data-i18n="hName">Ad Soyad</label>
+      <input id="fFullName" autocomplete="off">
+      <label data-i18n="hDept">Departman</label>
+      <input id="fDept" autocomplete="off">
+      <label data-i18n="hPhone">Telefon</label>
+      <input id="fPhone" autocomplete="off">
+      <label data-i18n="hNote">Not</label>
+      <input id="fNote" autocomplete="off">
+      <div class="row2">
+        <div><label data-i18n="hType">Kart Tipi</label><select id="fType"><option value="normal" data-i18n="normal">Normal</option><option value="admin" data-i18n="admin">Admin</option></select></div>
+        <div><label data-i18n="hStatus">Durum</label><select id="fActive"><option value="1" data-i18n="active">Aktif</option><option value="0" data-i18n="inactive">Pasif</option></select></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeUserModal()" data-i18n="cancel">İptal</button>
+      <button class="btn primary" onclick="saveUser()" data-i18n="saveUser">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tatil modal -->
+<div class="modal" id="holidayModal">
+  <div class="modal-box">
+    <div class="modal-head"><h3 data-i18n="addHoliday">Tatil Ekle</h3><button class="x" onclick="closeHolidayModal()">✕</button></div>
+    <div class="modal-body">
+      <label data-i18n="hDate">Tarih</label>
+      <input type="date" id="fHolidayDate" required>
+      <label data-i18n="hName">Ad</label>
+      <input id="fHolidayName" placeholder="Örn: 1 Ocak" autocomplete="off">
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeHolidayModal()" data-i18n="cancel">İptal</button>
+      <button class="btn primary" onclick="saveHoliday()" data-i18n="saveUser">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= i18n ================= */
+const i18n = {
+  tr: {general:'Genel', navDashboard:'Dashboard', navUsers:'Kullanıcılar', navLogs:'Erişim Logları', navWifi:'Ağ Ayarları', config:'Yapılandırma', coming:'Yakında', navSystem2:'Sistem', navSecurity:'Güvenlik',
+    navSchedules:'Geçiş Saatleri', navHolidays:'Tatiller', navMqtt:'MQTT', navNtp:'NTP', navHw:'Donanım', navSystem:'Sistem', navBackup:'Yedekleme', navFw:'Firmware',
+    secHint:'Web panelini korumak için bir şifre belirleyin. Şifre tuzlanmış PBKDF2-SHA256 olarak saklanır.', secUsername:'Kullanıcı Adı', secNewPass:'Yeni Şifre', secPass2:'Yeni Şifre (tekrar)', secTimeout:'Oturum Zaman Aşımı (dakika)', secLock:'Kilit aktif (giriş zorunlu)', secSaved:'Güvenlik ayarları kaydedildi.', secWrongPass:'Şifreler eşleşmiyor.', secNoPass:'Yeni şifre girin.',
+    bkHint:'Tüm ayarlar, kullanıcılar, planlar, tatiller ve loglar tek JSON dosyası olarak aktarılır.', bkExport:'Yedeği İndir', bkImport:'Yedekten Geri Yükle', bkExported:'Yedek indirildi.', bkImported:'Yedek geri yüklendi. Yeniden başlatılıyor...', bkFailed:'Yedek geri yüklenemedi.',
+    fwHint:'.bin uzantılı firmware dosyası yükleyin. Cihaz otomatik yeniden başlar; başarısız güncellemede eski sürüme dönülür.', fwUpload:'Firmware Yükle', fwUploading:'Yükleniyor...', fwDone:'Firmware güncellendi. Yeniden başlatılıyor...', fwFailed:'Güncelleme başarısız.', fwNoFile:'Lütfen bir .bin dosyası seçin.',
+    loginTitle:'ESP32 Kapı Kontrol', loginHint:'Devam etmek için giriş yapın.', loginBtn:'Giriş Yap', loginErr:'Kullanıcı adı veya şifre hatalı.', loginBad:'Kullanıcı adı veya şifre hatalı.', logout:'Çıkış Yap',
+    sTotal:'Toplam Kart', sAdmin:'Admin', sToday:'Bugünkü Geçiş', sTodayAR:'İzin / Red', sRssi:'WiFi Sinyal', sIp:'IP', sHeap:'Heap', sCpu:'CPU', sFlash:'Flash',
+    sUptime:'Çalışma Süresi', sNtp:'NTP', sTime:'Saat', sLast:'Son Geçişler', noData:'Kayıt yok',
+    hTime:'Tarih', hUid:'UID', hName:'Ad Soyad', hResult:'Sonuç', hReason:'Sebep', hCardName:'Kart Adı', hDept:'Departman', hType:'Tip', hStatus:'Durum', hLast:'Son Geçiş', hCount:'Geçiş', hDoor:'Kapı', hPhone:'Telefon', hNote:'Not',
+    addUser:'Yeni Kullanıcı', editUser:'Kullanıcıyı Düzenle', csv:'CSV İndir', clear:'Temizle', all:'Tümü', allowed:'İzin Verildi', denied:'Reddedildi',
+    normal:'Normal', admin:'Admin', active:'Aktif', inactive:'Pasif', cancel:'İptal', saveUser:'Kaydet', scan:'Tara', pass:'Şifre', hostname:'Cihaz Adı', ntpTitle:'Saat Ayarları (NTP)',
+    utcOffset:'UTC Ofseti (dakika)', dst:'Avrupa yaz/kış saati otomatik', save:'Kaydet & Bağlan', restart:'Yeniden Başlat',
+    hwRelay:'Röle Çıkışı', hwActiveLow:'Normalde Kapalı (aktifken LOW / NC)', hwDuration:'Aktif Süresi', hwOther:'Diğer Çıkışlar / Girişler',
+    hwBuzzer:'Buzzer GPIO', hwLed:'Durum LED GPIO', hwDoorSensor:'Kapı Sensörü GPIO', hwDoorActiveLow:'Kapı açıkken LOW okunur',
+    hwExit:'Çıkış Butonu GPIO', hwTest:'Donanım Testi', hwOpen:'Kapıyı Aç', hwClose:'Kapat', hwBeep:'Buzzer', hwLedTest:'LED',
+    hwMelodyHint:'Melodi testi:', hwMelodyOk:'Başarılı', hwMelodyDenied:'Reddedildi', hwMelodyOpen:'Açılış', hwMelodyPlayed:'Melodi çalındı',
+    hwDoor:'Kapı', hwClosed:'Kapalı', hwOpenState:'Açık', hwGpioSaved:'Donanım ayarları kaydedildi.', hwExitState:'Çıkış Butonu',
+    hwReader:'RFID Okuyucu', hwReaderType:'Okuyucu Tipi', hwAuto:'Otomatik Algıla', hwHzTitle:'HZ1050 — UART Ayarları', hwRcTitle:'MFRC522 — SPI Ayarları',
+    hwRxPin:'RX Pin (okuyucu TX)', hwTxPin:'TX Pin (okuyucu RX)', hwBaud:'Baud Hızı', hwSckPin:'SCK Pin', hwMisoPin:'MISO Pin', hwMosiPin:'MOSI Pin',
+    hwSdaPin:'SS / SDA Pin', hwRstPin:'RST Pin', hwSaveReader:'Okuyucuyu Kaydet', hwRfidSaved:'Okuyucu ayarları kaydedildi.',
+    hwRfidReady:'Okuyucu hazır', hwRfidNoReady:'Okuyucu algılanamadı', hwRfidScan:'Algılanıyor...',
+    lcdTitle:'LCD (I2C 16x2)', lcdEnable:"LCD'yi etkinleştir", lcdDetecting:'Algılanıyor...', lcdSda:'SDA Pin', lcdScl:'SCL Pin', lcdAddr:'I2C Adres (0 = otomatik, 0x27 / 0x3F yaygın)', lcdCols:'Sütun (16)', lcdRows:'Satır (2)', lcdScan:'Otomatik Algıla', lcdTest:'Test', lcdClear:'Temizle', lcdFound:'LCD bulundu', lcdNotFound:'LCD bulunamadı (pin/adres kontrol edin)', lcdDisabled:'LCD devre dışı', lcdSaved:'LCD ayarları kaydedildi.', lcdTestDone:'Test mesajı gönderildi.',
+    setupHint:'Kurulum tamamlanmadı. Lütfen önce Ağ Ayarları sayfasından WiFi yapılandırın.',
+    saved:'Kaydedildi! Yeniden bağlanılıyor...', restarting:'Yeniden başlatılıyor...', apiErr:'Sunucu hatası', noNet:'Ağ bulunamadı', scanDone:'Tarama tamam',
+    confirmDel:'Bu kullanıcı silinsin mi?', confirmClear:'Tüm erişim logları silinsin mi? Bu işlem geri alınamaz.',
+    deleted:'Kullanıcı silindi.', userSaved:'Kullanıcı kaydedildi.', uidReq:'UID zorunludur.', uidExists:'Bu UID zaten kayıtlı.',
+    err404:'Bulunamadı', err409:'UID zaten var', logsCleared:'Loglar temizlendi.', comingSoon:'Bu özellik yakında eklenecek.',
+    cardNormal:'Normal', cardAdmin:'Admin', r_valid:'Geçerli', r_out_of_hours:'Saat dışı', r_card_not_found:'Kart bulunamadı', r_card_inactive:'Pasif kart', r_holiday:'Tatil', r_door_open:'Kapı açık', r_invalid_uid:'Geçersiz UID', r_error:'Hata', r_none:'-',
+    st_on:'Bağlı', st_off:'Kapalı', ok:'Senkron', no:'-', bytes:'B',
+    schEnabled:'Zaman planı aktif', schHint:'Her gün için birden çok aralık girebilirsiniz. Örn: 08:00-12:00, 13:00-18:00.',
+    delSch:'Planı Sil', addHoliday:'Tatil Ekle', hDate:'Tarih', holidayHint:'Tatil günlerinde normal kartlar engellenir; admin kartlar geçer.',
+    schSaved:'Zaman planı kaydedildi.', schDeleted:'Plan silindi.', holSaved:'Tatil eklendi.', holDeleted:'Tatil silindi.', dayMon:'Pazartesi', dayTue:'Salı', dayWed:'Çarşamba', dayThu:'Perşembe', dayFri:'Cuma', daySat:'Cumartesi', daySun:'Pazar',
+    addRange:'+ Aralık Ekle', start:'Başlangıç', end:'Bitiş', phSchUser:'Kullanıcı seçin', userReq:'Önce kullanıcı seçin.', holDateReq:'Tarih zorunludur.',
+    navEvents:'Olay Logları', hType:'Tip', hMsg:'Mesaj', phEventSearch:'Ara...', confirmClearEvents:'Tüm sistem olayları silinsin mi?',
+    evBoot:'Açılış', evRestart:'Yeniden Başlatma', evWifiOn:'WiFi Bağlandı', evWifiOff:'WiFi Koptu', evMqttOn:'MQTT Bağlandı', evMqttErr:'MQTT Hata', evNtp:'NTP Senkron',
+    evCfgSave:'Yapılandırma Kaydı', evCfgRestore:'Yapılandırma Geri Yükleme', evFw:'Firmware Güncelleme', evLogin:'Giriş', evLogout:'Çıkış', evUnauth:'Yetkisiz Erişim',
+    evJsonErr:'JSON Parse Hatası', evFlashErr:'Flash Hatası', evRfid:'Okuyucu Değişti', evUserAdd:'Kullanıcı Eklendi', evUserDel:'Kullanıcı Silindi',
+    mqttEnabled:'MQTT etkin', mqttServer:'Broker Adresi (sunucu)', mqttPort:'Port', mqttUser:'Kullanıcı Adı (opsiyonel)', mqttPass:'Şifre (opsiyonel)', mqttClient:'İstemci Kimliği',
+    mqttPrefix:'Topic Öneki', mqttDiscovery:'Home Assistant Discovery Öneki', mqttTopics:'Topic Yapısı', mqttConnected:'Bağlı', mqttConnecting:'Bağlanıyor...', mqttDisabled:'Kapalı',
+    mqttTStatus:'Çevrimiçi durumu (LWT)', mqttTDoor:'Kapı durumu', mqttTAccess:'Erişim sonucu (JSON)', mqttTTelemetry:'Telemetri (RSSI/heap/IP)', mqttTCmd:'Komutlar: aç, restart, beep, led, reload', mqttSaved:'MQTT ayarları kaydedildi.',
+    enroll:'Kart Oku', enrollHint:'Kartı okuyucuya okutun...', uidHint:'(kart numarası)', uidRead:'Kart okundu.'},
+  en: {general:'General', navDashboard:'Dashboard', navUsers:'Users', navLogs:'Access Logs', navWifi:'Network Settings', config:'Configuration', coming:'Coming soon', navSystem2:'System', navSecurity:'Security',
+    navSchedules:'Schedules', navHolidays:'Holidays', navMqtt:'MQTT', navNtp:'NTP', navHw:'Hardware', navSystem:'System', navBackup:'Backup', navFw:'Firmware',
+    secHint:'Set a password to protect the web panel. Passwords are stored as salted PBKDF2-SHA256 hashes.', secUsername:'Username', secNewPass:'New Password', secPass2:'New Password (again)', secTimeout:'Session Timeout (minutes)', secLock:'Lock active (login required)', secSaved:'Security settings saved.', secWrongPass:'Passwords do not match.', secNoPass:'Enter a new password.',
+    bkHint:'Exports all settings, users, schedules, holidays and logs as a single JSON file.', bkExport:'Download Backup', bkImport:'Restore from Backup', bkExported:'Backup downloaded.', bkImported:'Backup restored. Restarting...', bkFailed:'Backup restore failed.',
+    fwHint:'Upload a .bin firmware file. The device restarts automatically; failed updates roll back to the previous version.', fwUpload:'Upload Firmware', fwUploading:'Uploading...', fwDone:'Firmware updated. Restarting...', fwFailed:'Update failed.', fwNoFile:'Please select a .bin file.',
+    loginTitle:'ESP32 Door Control', loginHint:'Please sign in to continue.', loginBtn:'Sign In', loginErr:'Invalid username or password.', loginBad:'Invalid username or password.', logout:'Sign Out',
+    sTotal:'Total Cards', sAdmin:'Admins', sToday:'Today Access', sTodayAR:'Allowed / Denied', sRssi:'WiFi Signal', sIp:'IP', sHeap:'Heap', sCpu:'CPU', sFlash:'Flash',
+    sUptime:'Uptime', sNtp:'NTP', sTime:'Time', sLast:'Last Events', noData:'No records',
+    hTime:'Time', hUid:'UID', hName:'Name', hResult:'Result', hReason:'Reason', hCardName:'Card Name', hDept:'Department', hType:'Type', hStatus:'Status', hLast:'Last Access', hCount:'Count', hDoor:'Door', hPhone:'Phone', hNote:'Note',
+    addUser:'Add User', editUser:'Edit User', csv:'Download CSV', clear:'Clear', all:'All', allowed:'Allowed', denied:'Denied',
+    normal:'Normal', admin:'Admin', active:'Active', inactive:'Inactive', cancel:'Cancel', saveUser:'Save', scan:'Scan', pass:'Password', hostname:'Hostname', ntpTitle:'Clock (NTP)',
+    utcOffset:'UTC Offset (minutes)', dst:'EU daylight saving automatically', save:'Save & Connect', restart:'Restart',
+    hwRelay:'Relay Output', hwActiveLow:'Normally Closed (active LOW / NC)', hwDuration:'Active Duration', hwOther:'Other Outputs / Inputs',
+    hwBuzzer:'Buzzer GPIO', hwLed:'Status LED GPIO', hwDoorSensor:'Door Sensor GPIO', hwDoorActiveLow:'Door open reads LOW',
+    hwExit:'Exit Button GPIO', hwTest:'Hardware Test', hwOpen:'Open Door', hwClose:'Close', hwBeep:'Buzzer', hwLedTest:'LED',
+    hwMelodyHint:'Melody test:', hwMelodyOk:'Granted', hwMelodyDenied:'Denied', hwMelodyOpen:'Open', hwMelodyPlayed:'Melody played',
+    hwDoor:'Door', hwClosed:'Closed', hwOpenState:'Open', hwGpioSaved:'Hardware settings saved.', hwExitState:'Exit Button',
+    hwReader:'RFID Reader', hwReaderType:'Reader Type', hwAuto:'Auto Detect', hwHzTitle:'HZ1050 — UART Settings', hwRcTitle:'MFRC522 — SPI Settings',
+    hwRxPin:'RX Pin (reader TX)', hwTxPin:'TX Pin (reader RX)', hwBaud:'Baud Rate', hwSckPin:'SCK Pin', hwMisoPin:'MISO Pin', hwMosiPin:'MOSI Pin',
+    hwSdaPin:'SS / SDA Pin', hwRstPin:'RST Pin', hwSaveReader:'Save Reader', hwRfidSaved:'Reader settings saved.',
+    hwRfidReady:'Reader ready', hwRfidNoReady:'Reader not detected', hwRfidScan:'Detecting...',
+    lcdTitle:'LCD (I2C 16x2)', lcdEnable:'Enable LCD', lcdDetecting:'Detecting...', lcdSda:'SDA Pin', lcdScl:'SCL Pin', lcdAddr:'I2C Address (0 = auto, common 0x27 / 0x3F)', lcdCols:'Columns (16)', lcdRows:'Rows (2)', lcdScan:'Auto Detect', lcdTest:'Test', lcdClear:'Clear', lcdFound:'LCD found', lcdNotFound:'LCD not found (check pins/address)', lcdDisabled:'LCD disabled', lcdSaved:'LCD settings saved.', lcdTestDone:'Test message sent.',
+    setupHint:'Setup incomplete. Please configure WiFi first in the Network Settings page.',
+    saved:'Saved! Reconnecting...', restarting:'Restarting...', apiErr:'Server error', noNet:'No networks found', scanDone:'Scan complete',
+    confirmDel:'Delete this user?', confirmClear:'Delete all access logs? This cannot be undone.',
+    deleted:'User deleted.', userSaved:'User saved.', uidReq:'UID is required.', uidExists:'UID already exists.',
+    err404:'Not found', err409:'UID exists', logsCleared:'Logs cleared.', comingSoon:'This feature is coming soon.',
+    cardNormal:'Normal', cardAdmin:'Admin', r_valid:'Valid', r_out_of_hours:'Out of hours', r_card_not_found:'Card not found', r_card_inactive:'Inactive card', r_holiday:'Holiday', r_door_open:'Door open', r_invalid_uid:'Invalid UID', r_error:'Error', r_none:'-',
+    st_on:'Connected', st_off:'Off', ok:'Synced', no:'-', bytes:'B',
+    schEnabled:'Schedule enabled', schHint:'You can enter multiple ranges per day. E.g. 08:00-12:00, 13:00-18:00.',
+    delSch:'Delete schedule', addHoliday:'Add Holiday', hDate:'Date', holidayHint:'On holidays, normal cards are blocked; admin cards still work.',
+    schSaved:'Schedule saved.', schDeleted:'Schedule deleted.', holSaved:'Holiday added.', holDeleted:'Holiday deleted.', dayMon:'Monday', dayTue:'Tuesday', dayWed:'Wednesday', dayThu:'Thursday', dayFri:'Friday', daySat:'Saturday', daySun:'Sunday',
+    addRange:'+ Add Range', start:'Start', end:'End', phSchUser:'Select user', userReq:'Please select a user first.', holDateReq:'Date is required.',
+    navEvents:'Event Logs', hType:'Type', hMsg:'Message', phEventSearch:'Search...', confirmClearEvents:'Delete all system events?',
+    evBoot:'Boot', evRestart:'Restart', evWifiOn:'WiFi Connected', evWifiOff:'WiFi Disconnected', evMqttOn:'MQTT Connected', evMqttErr:'MQTT Error', evNtp:'NTP Synced',
+    evCfgSave:'Config Saved', evCfgRestore:'Config Restored', evFw:'Firmware Update', evLogin:'Login', evLogout:'Logout', evUnauth:'Unauthorized',
+    evJsonErr:'JSON Parse Error', evFlashErr:'Flash Error', evRfid:'Reader Changed', evUserAdd:'User Added', evUserDel:'User Deleted',
+    mqttEnabled:'MQTT enabled', mqttServer:'Broker Address', mqttPort:'Port', mqttUser:'Username (optional)', mqttPass:'Password (optional)', mqttClient:'Client ID',
+    mqttPrefix:'Topic Prefix', mqttDiscovery:'Home Assistant Discovery Prefix', mqttTopics:'Topic Structure', mqttConnected:'Connected', mqttConnecting:'Connecting...', mqttDisabled:'Disabled',
+    mqttTStatus:'Online status (LWT)', mqttTDoor:'Door state', mqttTAccess:'Access result (JSON)', mqttTTelemetry:'Telemetry (RSSI/heap/IP)', mqttTCmd:'Commands: open, restart, beep, led, reload', mqttSaved:'MQTT settings saved.',
+    enroll:'Scan Card', enrollHint:'Please present the card to the reader...', uidHint:'(card number)', uidRead:'Card read.'}
+};
+let lang = 'tr';
+function t(k){ return (i18n[lang] && i18n[lang][k]) || i18n.tr[k] || k; }
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+}
+function toggleLang(){ lang = lang==='tr' ? 'en' : 'tr'; document.getElementById('langBtn').textContent = lang==='tr' ? 'EN' : 'TR'; applyI18n(); }
+
+/* ================= yardımcılar ================= */
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+let toastTimer = null;
+function toast(msg, ok){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + (ok ? 'ok' : 'err');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 4000);
+}
+const AUTH_KEY = 'doorAuth';
+function getAuth(){ try { return JSON.parse(sessionStorage.getItem(AUTH_KEY) || 'null'); } catch(e){ return null; } }
+function setAuth(a){ if(a) sessionStorage.setItem(AUTH_KEY, JSON.stringify(a)); else sessionStorage.removeItem(AUTH_KEY); }
+async function api(path, opts){
+  opts = opts || {};
+  opts.headers = opts.headers || {};
+  const auth = getAuth();
+  if(auth && auth.token){ opts.headers['X-Auth-Token'] = auth.token; }
+  if(auth && auth.csrf && /^(POST|PUT|DELETE|PATCH)$/i.test(opts.method || 'GET')){ opts.headers['X-CSRF-Token'] = auth.csrf; }
+  try{
+    const r = await fetch(path, opts);
+    if(r.status === 401 && !path.startsWith('/api/auth/')){
+      setAuth(null);
+      showLogin();
+      return { ok:false, error:'' };
+    }
+    const data = await r.json().catch(() => ({}));
+    if(!r.ok && data.error){ toast(data.error, false); }
+    return data;
+  }catch(e){ toast(t('apiErr'), false); return null; }
+}
+function fmtUptime(ms){
+  const s = Math.floor((ms||0)/1000);
+  const d = Math.floor(s/86400), h = Math.floor(s%86400/3600), m = Math.floor(s%3600/60);
+  return d + 'g ' + h + 's ' + m + 'd';
+}
+function fmtEpoch(ts){
+  if(!ts || ts < 1600000000) return '-';
+  const d = new Date(ts*1000), p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+const reasonT = { valid:'r_valid', out_of_hours:'r_out_of_hours', card_not_found:'r_card_not_found', card_inactive:'r_card_inactive', holiday:'r_holiday', door_open:'r_door_open', invalid_uid:'r_invalid_uid', error:'r_error', none:'r_none' };
+
+/* ================= sayfa yönetimi ================= */
+function go(page){
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('aside a[data-page]').forEach(a => a.classList.toggle('active', a.dataset.page === page));
+  const titleKey = page === 'firmware' ? 'navFw' : ('nav' + page.charAt(0).toUpperCase() + page.slice(1));
+  document.getElementById('pageTitle').textContent = t(titleKey);
+  document.getElementById('sidebar').classList.remove('open');
+  if(page === 'dashboard') loadDashboard();
+  if(page === 'users') loadUsers();
+  if(page === 'logs') loadLogs();
+  if(page === 'events') loadEvents();
+  if(page === 'wifi') loadConfig();
+  if(page === 'mqtt') loadMqtt();
+  if(page === 'hardware') { loadRfid(); loadGpio(); loadLcd(); }
+  if(page === 'schedules') loadSchedules();
+  if(page === 'holidays') loadHolidays();
+  if(page === 'security') loadSecurity();
+}
+function soon(){ toast(t('comingSoon'), true); }
+
+/* ================= Dashboard ================= */
+async function loadDashboard(){
+  const d = await api('/api/dashboard');
+  if(!d) return;
+  document.getElementById('dTotal').textContent = d.users ? d.users.total : '-';
+  document.getElementById('dAdmins').textContent = d.users ? d.users.admins : '-';
+  document.getElementById('dToday').textContent = d.access ? d.access.today : '-';
+  document.getElementById('dTodayAR').textContent = d.access ? (d.access.todayAllowed + ' / ' + d.access.todayDenied) : '-';
+  const sys = d.system || {};
+  const fwEl = document.getElementById('fwVersion');
+  if(fwEl && sys.version){ fwEl.textContent = 'v' + sys.version; }
+  document.getElementById('dRssi').textContent = sys.rssi ? sys.rssi + ' dBm' : '-';
+  document.getElementById('dIp').textContent = sys.ip || '-';
+  document.getElementById('dHeap').textContent = sys.heap ? (Math.round(sys.heap/1024) + ' KB') : '-';
+  document.getElementById('dCpu').textContent = sys.cpuFreq ? (sys.cpuFreq + ' MHz') : '-';
+  document.getElementById('dFlash').textContent = sys.flashSize ? (Math.round(sys.flashSize/1024/1024*10)/10 + ' MB') : '-';
+  document.getElementById('dUptime').textContent = fmtUptime(sys.uptime_ms);
+  document.getElementById('dNtp').textContent = sys.ntp_synced ? t('ok') : t('no');
+  document.getElementById('dTime').textContent = sys.time || '-';
+  const rows = document.getElementById('lastRows');
+  const last = d.last || [];
+  rows.innerHTML = last.length ? last.map(r =>
+    `<tr><td>${esc(r.ts_str||fmtEpoch(r.ts))}</td><td class="mono">${esc(r.uid)}</td><td>${esc(r.name)}</td>` +
+    `<td><span class="badge ${r.result==='allowed'?'ok':'err'}">${r.result==='allowed'?t('allowed'):t('denied')}</span></td>` +
+    `<td>${esc(t(reasonT[r.reason]||r.reason))}</td></tr>`).join('')
+    : `<tr><td class="empty" colspan="5">${t('noData')}</td></tr>`;
+}
+
+/* ================= Kullanıcılar ================= */
+let usersCache = [];
+async function loadUsers(){
+  const d = await api('/api/users');
+  usersCache = (d && d.users) || [];
+  renderUsers();
+}
+function renderUsers(){
+  const q = document.getElementById('userSearch').value.trim().toLowerCase();
+  const rows = usersCache.filter(u =>
+    !q || (u.uid+' '+u.cardName+' '+u.fullName+' '+u.department).toLowerCase().includes(q));
+  const tb = document.getElementById('userRows');
+  tb.innerHTML = rows.length ? rows.map(u => {
+    const active = u.active === true || u.active === 'true' || u.active === 1;
+    return `<tr>
+      <td class="mono">${esc(u.uid)}</td>
+      <td>${esc(u.cardName)}</td>
+      <td>${esc(u.fullName)}</td>
+      <td>${esc(u.department)}</td>
+      <td><span class="badge ${u.type==='admin'?'warn':'mut'}">${u.type==='admin'?t('cardAdmin'):t('cardNormal')}</span></td>
+      <td><span class="badge ${active?'ok':'err'}">${active?t('active'):t('inactive')}</span></td>
+      <td>${fmtEpoch(u.lastAccessAt)}</td>
+      <td>${u.accessCount||0}</td>
+      <td>
+        <button class="btn mini" onclick="openUser('${esc(u.uid)}')">✏️</button>
+        <button class="btn mini" onclick="toggleUser('${esc(u.uid)}')">${active?'⏸':'▶'}</button>
+        <button class="btn mini danger" onclick="deleteUser('${esc(u.uid)}')">🗑</button>
+      </td></tr>`;
+  }).join('') : `<tr><td class="empty" colspan="9">${t('noData')}</td></tr>`;
+}
+let editingUid = null;
+function openUser(uid){
+  editingUid = uid || null;
+  document.getElementById('userModalTitle').textContent = uid ? t('editUser') : t('addUser');
+  const u = uid ? usersCache.find(x => x.uid === uid) : null;
+  document.getElementById('fUid').value = u ? u.uid : '';
+  document.getElementById('fUid').readOnly = !!u;
+  document.getElementById('fCardName').value = u ? u.cardName : '';
+  document.getElementById('fFullName').value = u ? u.fullName : '';
+  document.getElementById('fDept').value = u ? u.department : '';
+  document.getElementById('fPhone').value = u ? u.phone : '';
+  document.getElementById('fNote').value = u ? u.note : '';
+  document.getElementById('fType').value = u ? (u.type === 'admin' ? 'admin' : 'normal') : 'normal';
+  const active = u ? (u.active === true || u.active === 'true' || u.active === 1) : true;
+  document.getElementById('fActive').value = active ? '1' : '0';
+  document.getElementById('userModal').classList.add('open');
+}
+async function saveUser(){
+  const uid = document.getElementById('fUid').value.trim();
+  if(!uid){ toast(t('uidReq'), false); return; }
+  const body = {
+    uid, cardName: document.getElementById('fCardName').value.trim(),
+    fullName: document.getElementById('fFullName').value.trim(),
+    department: document.getElementById('fDept').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    note: document.getElementById('fNote').value.trim(),
+    type: document.getElementById('fType').value,
+    active: document.getElementById('fActive').value === '1'
+  };
+  const path = editingUid ? ('/api/users/' + encodeURIComponent(uid)) : '/api/users';
+  const method = editingUid ? 'PUT' : 'POST';
+  const r = await api(path, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if(r && (r.ok !== undefined)){
+    closeUserModal();
+    toast(t('userSaved'), true);
+    loadUsers();
+  } else {
+    loadUsers(); // hata mesajı api() içinde gösterildi
+  }
+}
+async function toggleUser(uid){
+  const u = usersCache.find(x => x.uid === uid);
+  if(!u) return;
+  u.active = !(u.active === true || u.active === 'true' || u.active === 1);
+  const r = await api('/api/users/' + encodeURIComponent(uid), {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(u)});
+  if(r && r.ok) loadUsers();
+}
+async function deleteUser(uid){
+  if(!confirm(t('confirmDel'))) return;
+  const r = await api('/api/users/' + encodeURIComponent(uid), {method:'DELETE'});
+  if(r && r.ok){ toast(t('deleted'), true); loadUsers(); }
+}
+
+/* ================= Erişim Logları ================= */
+async function loadLogs(){
+  const result = document.getElementById('logResult').value;
+  const q = document.getElementById('logSearch').value.trim();
+  const limit = document.getElementById('logLimit').value;
+  const params = new URLSearchParams({result, limit});
+  if(q) params.set('q', q);
+  const d = await api('/api/logs/access?' + params.toString());
+  if(!d) return;
+  const entries = d.entries || [];
+  const tb = document.getElementById('logRows');
+  tb.innerHTML = entries.length ? entries.map(r =>
+    `<tr>
+      <td>${esc(r.ts_str || fmtEpoch(r.ts))}</td>
+      <td class="mono">${esc(r.uid)}</td>
+      <td>${esc(r.name)}</td>
+      <td>${esc(r.door)}</td>
+      <td><span class="badge ${r.result==='allowed'?'ok':'err'}">${r.result==='allowed'?t('allowed'):t('denied')}</span></td>
+      <td>${esc(t(reasonT[r.reason]||r.reason))}</td>
+      <td>${esc(r.ip||'-')}</td>
+      <td>${r.rssi||'-'}</td>
+    </tr>`).join('') : `<tr><td class="empty" colspan="8">${t('noData')}</td></tr>`;
+}
+function downloadCsv(){
+  const q = document.getElementById('logSearch').value.trim();
+  window.location.href = '/api/logs/access.csv' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+}
+async function clearLogs(){
+  if(!confirm(t('confirmClear'))) return;
+  const r = await api('/api/logs/clear', {method:'POST'});
+  if(r && r.ok){ toast(t('logsCleared'), true); loadLogs(); }
+}
+
+/* ================= Sistem Olayları ================= */
+const eventTypeT = { boot:'evBoot', restart:'evRestart', wifi_connected:'evWifiOn', wifi_disconnected:'evWifiOff',
+  mqtt_connected:'evMqttOn', mqtt_error:'evMqttErr', ntp_sync:'evNtp', config_save:'evCfgSave', config_restore:'evCfgRestore',
+  firmware_update:'evFw', login:'evLogin', logout:'evLogout', unauthorized:'evUnauth', json_parse_error:'evJsonErr',
+  flash_error:'evFlashErr', rfid_changed:'evRfid', user_added:'evUserAdd', user_deleted:'evUserDel', none:'-' };
+async function loadEvents(){
+  const type = document.getElementById('eventType').value;
+  const q = document.getElementById('eventSearch').value.trim();
+  const limit = document.getElementById('eventLimit').value;
+  const params = new URLSearchParams({limit});
+  if(type) params.set('type', type);
+  if(q) params.set('q', q);
+  const d = await api('/api/logs/event?' + params.toString());
+  if(!d) return;
+  const entries = d.entries || [];
+  const tb = document.getElementById('eventRows');
+  tb.innerHTML = entries.length ? entries.map(r =>
+    `<tr>
+      <td>${esc(r.ts_str || fmtEpoch(r.ts))}</td>
+      <td><span class="badge mut">${esc(t(eventTypeT[r.type] || r.type))}</span></td>
+      <td>${esc(r.message)}</td>
+    </tr>`).join('') : `<tr><td class="empty" colspan="3">${t('noData')}</td></tr>`;
+}
+function downloadEventCsv(){ window.location.href = '/api/logs/event.csv'; }
+async function clearEvents(){
+  if(!confirm(t('confirmClearEvents'))) return;
+  const r = await api('/api/logs/event/clear', { method:'POST' });
+  if(r && r.ok){ toast(t('logsCleared'), true); loadEvents(); }
+}
+
+/* ================= MQTT ================= */
+async function loadMqtt(){
+  const d = await api('/api/mqtt');
+  if(!d) return;
+  const c = d.config || {};
+  document.getElementById('mqttEnabled').checked = c.enabled === true;
+  document.getElementById('mqttServer').value = c.server || '';
+  document.getElementById('mqttPort').value = c.port != null ? c.port : 1883;
+  document.getElementById('mqttUser').value = c.username || '';
+  document.getElementById('mqttPass').value = '';
+  document.getElementById('mqttClientId').value = c.clientId || 'esp32-door';
+  document.getElementById('mqttTopicPrefix').value = c.topicPrefix || 'esp32door';
+  document.getElementById('mqttDiscovery').value = c.discoveryPrefix || 'homeassistant';
+  const st = document.getElementById('mqttStatus');
+  const enabled = d.enabled === true;
+  const conn = d.connected === true;
+  const icon = enabled ? (conn ? '🟢' : '🟠') : '⚫';
+  const label = enabled ? (conn ? t('mqttConnected') : t('mqttConnecting')) : t('mqttDisabled');
+  st.innerHTML = `<div class="net-item"><span>${icon} ${t('navMqtt')}</span><span class="badge ${enabled?(conn?'ok':'warn'):'mut'}">${esc(label)}</span></div>`;
+  const prefix = c.topicPrefix || 'esp32door';
+  document.getElementById('mqttTopics').innerHTML =
+    `<div>${esc(prefix)}/status &nbsp;— ${t('mqttTStatus')}</div>` +
+    `<div>${esc(prefix)}/door &nbsp;— ${t('mqttTDoor')}</div>` +
+    `<div>${esc(prefix)}/access &nbsp;— ${t('mqttTAccess')}</div>` +
+    `<div>${esc(prefix)}/telemetry &nbsp;— ${t('mqttTTelemetry')}</div>` +
+    `<div>${esc(prefix)}/cmd/door &nbsp;— ${t('mqttTCmd')}</div>`;
+}
+async function saveMqtt(){
+  const body = JSON.stringify({
+    enabled: document.getElementById('mqttEnabled').checked,
+    server: document.getElementById('mqttServer').value.trim(),
+    port: parseInt(document.getElementById('mqttPort').value, 10) || 1883,
+    username: document.getElementById('mqttUser').value.trim(),
+    password: document.getElementById('mqttPass').value,
+    clientId: document.getElementById('mqttClientId').value.trim() || 'esp32-door',
+    topicPrefix: document.getElementById('mqttTopicPrefix').value.trim() || 'esp32door',
+    discoveryPrefix: document.getElementById('mqttDiscovery').value.trim() || 'homeassistant'
+  });
+  const r = await api('/api/mqtt', { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  if(r && r.ok){ toast(t('mqttSaved'), true); loadMqtt(); }
+}
+
+/* ================= Kart kayıt (enrollment) ================= */
+let enrollTimer = null;
+async function toggleEnroll(){
+  const on = !enrollTimer;
+  const r = await api('/api/rfid/enroll', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enroll: on}) });
+  if(!r || r.ok !== true) return;
+  document.getElementById('enrollHint').style.display = on ? 'block' : 'none';
+  document.getElementById('enrollBtn').classList.toggle('primary', on);
+  if(on){
+    enrollTimer = setInterval(async () => {
+      const d = await api('/api/rfid/enroll');
+      if(d && d.uid){
+        document.getElementById('fUid').value = d.uid;
+        stopEnroll();
+        toast(t('uidRead'), true);
+      }
+    }, 700);
+  } else {
+    stopEnroll();
+  }
+}
+async function stopEnroll(){
+  if(enrollTimer){ clearInterval(enrollTimer); enrollTimer = null; }
+  document.getElementById('enrollHint').style.display = 'none';
+  document.getElementById('enrollBtn').classList.remove('primary');
+  await api('/api/rfid/enroll', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enroll: false}) });
+}
+function closeUserModal(){ stopEnroll(); document.getElementById('userModal').classList.remove('open'); }
+
+/* ================= Ağ Ayarları ================= */
+let scanTimer = null;
+async function loadConfig(){
+  const c = await api('/api/config');
+  if(!c) return;
+  document.getElementById('ssidInput').value = c.wifi ? c.wifi.ssid : '';
+  document.getElementById('passInput').value = '';
+  document.getElementById('passInput').placeholder = c.wifi && c.wifi.password === '********' ? '••••••••' : '';
+  document.getElementById('hostInput').value = (c.wifi && c.wifi.hostname) || 'esp32-door';
+  document.getElementById('ntpServer').value = (c.ntp && c.ntp.server) || 'pool.ntp.org';
+  document.getElementById('ntpOffset').value = (c.ntp && c.ntp.utcOffsetMin) || 180;
+  document.getElementById('ntpDst').checked = !!(c.ntp && c.ntp.autoDst);
+}
+function renderNetworks(s){
+  const box = document.getElementById('networks');
+  box.innerHTML = '';
+  if(!s.networks || !s.networks.length){ box.innerHTML = '<div class="net-item"><span>'+t('noNet')+'</span></div>'; return; }
+  s.networks.forEach(n => {
+    const div = document.createElement('div');
+    div.className = 'net-item';
+    const lock = n.open ? '🔓' : '🔒';
+    div.innerHTML = '<span>' + esc(n.ssid || '') + '</span><span>' + lock + ' ' + n.rssi + ' dBm</span>';
+    div.onclick = () => { document.getElementById('ssidInput').value = n.ssid; document.getElementById('passInput').focus(); };
+    box.appendChild(div);
+  });
+}
+async function scanWifi(){
+  const btn = document.getElementById('scanBtn');
+  btn.innerHTML = '<span class="spin"></span>';
+  const s = await api('/api/wifi/scan');
+  if(!s){ btn.textContent = t('scan'); return; }
+  if(s.scanning){
+    if(!scanTimer) scanTimer = setInterval(async () => {
+      const r = await api('/api/wifi/scan');
+      if(r && !r.scanning){
+        clearInterval(scanTimer); scanTimer = null;
+        btn.textContent = t('scan');
+        renderNetworks(r);
+      }
+    }, 2000);
+    return;
+  }
+  btn.textContent = t('scan');
+  renderNetworks(s);
+}
+async function saveConfig(){
+  const body = JSON.stringify({
+    wifi: {
+      ssid: document.getElementById('ssidInput').value.trim(),
+      password: document.getElementById('passInput').value,
+      hostname: document.getElementById('hostInput').value.trim() || 'esp32-door'
+    },
+    ntp: {
+      server: document.getElementById('ntpServer').value.trim() || 'pool.ntp.org',
+      utcOffsetMin: parseInt(document.getElementById('ntpOffset').value, 10) || 180,
+      autoDst: document.getElementById('ntpDst').checked
+    }
+  });
+  const r = await api('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  if(r && r.ok){ toast(t('saved'), true); }
+}
+async function restart(){
+  toast(t('restarting'), true);
+  await api('/api/restart', { method:'POST' });
+}
+
+/* ================= Donanım ================= */
+async function loadRfid(){
+  const d = await api('/api/rfid');
+  if(!d) return;
+  const c = d.config || {};
+  const type = c.type || 'auto';
+  document.getElementById('rfidType').value = type;
+  document.getElementById('rfidHzRx').value = c.hz1050RxPin != null ? c.hz1050RxPin : 25;
+  document.getElementById('rfidHzTx').value = c.hz1050TxPin != null ? c.hz1050TxPin : 26;
+  const baudSel = document.getElementById('rfidHzBaud');
+  if([9600,19200].includes(c.hz1050Baud)) baudSel.value = c.hz1050Baud;
+  document.getElementById('rfidSck').value = c.mfrc522SckPin != null ? c.mfrc522SckPin : 18;
+  document.getElementById('rfidMiso').value = c.mfrc522MisoPin != null ? c.mfrc522MisoPin : 19;
+  document.getElementById('rfidMosi').value = c.mfrc522MosiPin != null ? c.mfrc522MosiPin : 23;
+  document.getElementById('rfidSda').value = c.mfrc522SdaPin != null ? c.mfrc522SdaPin : 5;
+  document.getElementById('rfidRst').value = c.mfrc522RstPin != null ? c.mfrc522RstPin : 21;
+  document.getElementById('rfidEnroll').checked = !!d.enroll;
+  const st = document.getElementById('rfidState');
+  const label = (d.active && !String(d.active).startsWith('Okuyucu')) ? d.active : (d.reader || c.type);
+  if(d.ready){
+    st.className = 'badge ok';
+    st.textContent = `🆔 ${t('hwRfidReady')} — ${label}`;
+  } else if(d.detecting){
+    st.className = 'badge mut';
+    st.textContent = t('hwRfidScan');
+  } else {
+    st.className = 'badge warn';
+    st.textContent = `${t('hwRfidNoReady')} — ${label}`;
+  }
+  toggleRfidSections();
+}
+function toggleRfidSections(){
+  const t = document.getElementById('rfidType').value;
+  document.getElementById('rfidHzSection').style.display = (t === 'auto' || t === 'hz1050') ? 'block' : 'none';
+  document.getElementById('rfidRcSection').style.display = (t === 'auto' || t === 'mfrc522') ? 'block' : 'none';
+}
+async function saveRfid(){
+  const body = JSON.stringify({
+    type: document.getElementById('rfidType').value,
+    hz1050RxPin: parseInt(document.getElementById('rfidHzRx').value, 10),
+    hz1050TxPin: parseInt(document.getElementById('rfidHzTx').value, 10),
+    hz1050Baud: parseInt(document.getElementById('rfidHzBaud').value, 10),
+    mfrc522SckPin: parseInt(document.getElementById('rfidSck').value, 10),
+    mfrc522MisoPin: parseInt(document.getElementById('rfidMiso').value, 10),
+    mfrc522MosiPin: parseInt(document.getElementById('rfidMosi').value, 10),
+    mfrc522SdaPin: parseInt(document.getElementById('rfidSda').value, 10),
+    mfrc522RstPin: parseInt(document.getElementById('rfidRst').value, 10)
+  });
+  const r = await api('/api/rfid', { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  if(r && r.ok){ toast(t('hwRfidSaved'), true); loadRfid(); }
+}
+async function loadGpio(){
+  const d = await api('/api/gpio');
+  if(!d) return;
+  const c = d.config || {};
+  document.getElementById('hwRelayPin').value = c.relayPin != null ? c.relayPin : 4;
+  document.getElementById('hwRelayActiveLow').checked = !!c.relayActiveLow;
+  const msSel = document.getElementById('hwRelayMs');
+  if([500,1000,2000,5000,10000].includes(c.relayActiveMs)) msSel.value = c.relayActiveMs;
+  document.getElementById('hwBuzzerPin').value = c.buzzerPin != null ? c.buzzerPin : 16;
+  document.getElementById('hwLedPin').value = c.statusLedPin != null ? c.statusLedPin : 2;
+  document.getElementById('hwDoorPin').value = c.doorSensorPin != null ? c.doorSensorPin : 17;
+  document.getElementById('hwDoorActiveLow').checked = c.doorSensorActiveLow !== false;
+  document.getElementById('hwExitPin').value = c.exitButtonPin != null ? c.exitButtonPin : 18;
+  renderHwState(d);
+}
+function renderHwState(d){
+  const st = document.getElementById('hwState');
+  const door = d.state === 'open' ? t('hwOpenState') : t('hwClosed');
+  const phys = d.doorOpenPhysical ? t('hwOpenState') : t('hwClosed');
+  const exit = d.exitPressed ? t('active') : t('inactive');
+  let melodyHtml = '';
+  if(d.melody){
+    const label = d.melody === 'success' ? t('hwMelodyOk') : (d.melody === 'denied' ? t('hwMelodyDenied') : d.melody);
+    melodyHtml = `<div class="net-item"><span>${t('hwBeep')}</span><span class="badge ok">♪ ${label}</span></div>`;
+  }
+  st.innerHTML =
+    `<div class="net-item"><span>${t('hwDoor')} (r&ouml;le)</span><span class="badge ${d.state==='open'?'ok':'mut'}">${door}</span></div>` +
+    `<div class="net-item"><span>${t('hwDoorSensor')}</span><span class="badge ${d.doorOpenPhysical?'warn':'mut'}">${phys}</span></div>` +
+    `<div class="net-item"><span>${t('hwExitState')}</span><span class="badge ${d.exitPressed?'warn':'mut'}">${exit}</span></div>` +
+    melodyHtml;
+}
+async function saveGpio(){
+  const body = JSON.stringify({
+    relayPin: parseInt(document.getElementById('hwRelayPin').value, 10),
+    relayActiveLow: document.getElementById('hwRelayActiveLow').checked,
+    relayActiveMs: parseInt(document.getElementById('hwRelayMs').value, 10),
+    buzzerPin: parseInt(document.getElementById('hwBuzzerPin').value, 10),
+    statusLedPin: parseInt(document.getElementById('hwLedPin').value, 10),
+    doorSensorPin: parseInt(document.getElementById('hwDoorPin').value, 10),
+    doorSensorActiveLow: document.getElementById('hwDoorActiveLow').checked,
+    exitButtonPin: parseInt(document.getElementById('hwExitPin').value, 10)
+  });
+  const r = await api('/api/gpio', { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  if(r && r.ok){ toast(t('hwGpioSaved'), true); loadGpio(); }
+}
+async function hwAction(action){
+  const r = await api('/api/gpio/action', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action}) });
+  if(r && r.ok) loadGpio();
+}
+async function hwMelody(melody){
+  const r = await api('/api/gpio/action', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'melody', melody}) });
+  if(r && r.ok) toast(t('hwMelodyPlayed')+' ('+melody+')', true);
+}
+
+/* ================= LCD (I2C) ================= */
+async function loadLcd(){
+  const d = await api('/api/lcd');
+  if(!d) return;
+  const c = d.config || {};
+  document.getElementById('lcdEnabled').checked = !!c.enabled;
+  document.getElementById('lcdSdaPin').value = c.sdaPin != null ? c.sdaPin : -1;
+  document.getElementById('lcdSclPin').value = c.sclPin != null ? c.sclPin : -1;
+  document.getElementById('lcdAddress').value = c.address ? '0x'+Number(c.address).toString(16).toUpperCase() : 0;
+  document.getElementById('lcdCols').value = c.cols || 16;
+  document.getElementById('lcdRows').value = c.rows || 2;
+  const st = document.getElementById('lcdState');
+  if(d.present){
+    st.className = 'badge ok';
+    st.textContent = `${t('lcdFound')} SDA=${d.detectedSda} SCL=${d.detectedScl} @0x${Number(d.detectedAddress).toString(16).toUpperCase()}`;
+  } else {
+    st.className = 'badge warn';
+    st.textContent = c.enabled ? t('lcdNotFound') : t('lcdDisabled');
+  }
+}
+async function saveLcd(){
+  const addrRaw = document.getElementById('lcdAddress').value.trim();
+  let address = 0;
+  if(addrRaw && addrRaw !== '0'){
+    address = /^0x/i.test(addrRaw) ? parseInt(addrRaw, 16) : parseInt(addrRaw, 10);
+    if(isNaN(address)) address = 0;
+  }
+  const body = JSON.stringify({
+    enabled: document.getElementById('lcdEnabled').checked,
+    sdaPin: parseInt(document.getElementById('lcdSdaPin').value, 10),
+    sclPin: parseInt(document.getElementById('lcdSclPin').value, 10),
+    address: address,
+    cols: parseInt(document.getElementById('lcdCols').value, 10) || 16,
+    rows: parseInt(document.getElementById('lcdRows').value, 10) || 2
+  });
+  const r = await api('/api/lcd', { method:'POST', headers:{'Content-Type':'application/json'}, body });
+  if(r && r.ok){ toast(t('lcdSaved'), true); loadLcd(); }
+}
+async function lcdAction(action){
+  const r = await api('/api/lcd/action', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action}) });
+  if(!r) return;
+  if(action === 'scan'){
+    if(r.found){ toast(t('lcdFound')+' SDA='+r.sdaPin+' SCL='+r.sclPin, true); }
+    else toast(t('lcdNotFound'), false);
+    loadLcd();
+  } else {
+    if(r.ok) toast(t('lcdTestDone'), true);
+    loadLcd();
+  }
+}
+
+/* ================= Geçiş Saatleri ================= */
+let schData = null; // {uid, enabled, days:[{enabled, ranges:[{start,end}]}]}
+let schDirty = false;
+const DAY_KEYS = ['dayMon','dayTue','dayWed','dayThu','dayFri','daySat','daySun'];
+async function loadSchedules(){
+  const d = await api('/api/users');
+  const users = (d && d.users) || [];
+  const sel = document.getElementById('schUser');
+  sel.innerHTML = '<option value="">' + t('phSchUser') + '</option>' + users.map(u =>
+    `<option value="${esc(u.uid)}">${esc(u.uid)} — ${esc(u.fullName || u.cardName || '')}</option>`).join('');
+  const prev = sel.dataset.prev;
+  if(prev && users.find(u => u.uid === prev)) sel.value = prev;
+  if(sel.value) loadSchedule();
+  else clearSchDays();
+}
+async function loadSchedule(){
+  const uid = document.getElementById('schUser').value;
+  if(!uid){ clearSchDays(); return; }
+  document.getElementById('schUser').dataset.prev = uid;
+  const d = await api('/api/schedule/' + encodeURIComponent(uid));
+  const s = (d && d.schedule) || {};
+  schData = {
+    uid,
+    enabled: s.enabled === true || s.enabled === 1,
+    days: (s.days || []).map(day => ({
+      enabled: day.enabled === true || day.enabled === 1,
+      ranges: (day.ranges || []).map(r => ({start:r.start, end:r.end}))
+    }))
+  };
+  while(schData.days.length < 7) schData.days.push({enabled:false, ranges:[]});
+  document.getElementById('schEnabled').checked = schData.enabled;
+  renderSchDays();
+  schDirty = false;
+}
+function clearSchDays(){ schData = {uid:'', enabled:false, days:[...Array(7)].map(() => ({enabled:false, ranges:[]}))}; renderSchDays(); }
+function markSchDirty(){ schDirty = true; }
+function minToStr(m){ const h = Math.floor(m/60), mm = m%60; return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0'); }
+function strToMin(s){ const m = s.match(/^(\d{1,2}):(\d{2})$/); if(!m) return -1; const v = parseInt(m[1],10)*60 + parseInt(m[2],10); return (v >= 0 && v < 1440) ? v : -1; }
+function renderSchDays(){
+  const box = document.getElementById('schDays');
+  box.innerHTML = schData.days.map((day, di) => `
+    <div class="card day-card">
+      <div class="day-head">
+        <label class="check"><input type="checkbox" ${day.enabled?'checked':''} onchange="setDayEnabled(${di}, this.checked)"><span>${t(DAY_KEYS[di])}</span></label>
+      </div>
+      <div class="range-list">
+        ${day.ranges.map((r, ri) => `
+          <div class="range-row">
+            <span>${t('start')}</span><input type="time" value="${minToStr(r.start)}" onchange="setRange(${di},${ri},'start',this.value)">
+            <span>${t('end')}</span><input type="time" value="${minToStr(r.end)}" onchange="setRange(${di},${ri},'end',this.value)">
+            <button class="btn mini danger" onclick="removeRange(${di},${ri})">🗑</button>
+          </div>`).join('')}
+      </div>
+      <button class="btn mini" onclick="addRange(${di})">${t('addRange')}</button>
+    </div>`).join('');
+}
+function setDayEnabled(di, v){ schData.days[di].enabled = v; schDirty = true; }
+function setRange(di, ri, field, val){
+  const m = strToMin(val);
+  if(m < 0) return;
+  schData.days[di].ranges[ri][field] = m;
+  schDirty = true;
+}
+function addRange(di){
+  const ranges = schData.days[di].ranges;
+  ranges.push({start: ranges.length ? ranges[ranges.length-1].end : 8*60, end: ranges.length ? ranges[ranges.length-1].end + 60 : 9*60});
+  renderSchDays(); schDirty = true;
+}
+function removeRange(di, ri){
+  schData.days[di].ranges.splice(ri, 1);
+  renderSchDays(); schDirty = true;
+}
+async function saveSchedule(){
+  const uid = document.getElementById('schUser').value;
+  if(!uid){ toast(t('userReq'), false); return; }
+  const payload = {
+    enabled: document.getElementById('schEnabled').checked,
+    days: schData.days.map(day => ({
+      enabled: day.enabled,
+      ranges: day.ranges.filter(r => r.end > r.start).map(r => ({start:r.start, end:r.end}))
+    }))
+  };
+  const r = await api('/api/schedule/' + encodeURIComponent(uid), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  if(r && r.ok){ toast(t('schSaved'), true); schDirty = false; }
+}
+async function deleteSchedule(){
+  const uid = document.getElementById('schUser').value;
+  if(!uid){ toast(t('userReq'), false); return; }
+  if(!confirm(t('confirmDel'))) return;
+  const r = await api('/api/schedule/' + encodeURIComponent(uid), { method:'DELETE' });
+  if(r && r.ok){ toast(t('schDeleted'), true); loadSchedule(); }
+}
+
+/* ================= Tatiller ================= */
+let holidaysCache = [];
+async function loadHolidays(){
+  const d = await api('/api/holidays');
+  holidaysCache = (d && d.holidays) || [];
+  renderHolidays();
+}
+function renderHolidays(){
+  const tb = document.getElementById('holidayRows');
+  tb.innerHTML = holidaysCache.length ? holidaysCache.map(h =>
+    `<tr>
+      <td class="mono">${esc(h.date)}</td>
+      <td>${esc(h.name)}</td>
+      <td><button class="btn mini danger" onclick="deleteHoliday('${esc(h.date)}')">🗑</button></td>
+    </tr>`).join('') : `<tr><td class="empty" colspan="3">${t('noData')}</td></tr>`;
+}
+function openHolidayModal(){
+  document.getElementById('fHolidayDate').value = '';
+  document.getElementById('fHolidayName').value = '';
+  document.getElementById('holidayModal').classList.add('open');
+}
+function closeHolidayModal(){ document.getElementById('holidayModal').classList.remove('open'); }
+async function saveHoliday(){
+  const date = document.getElementById('fHolidayDate').value;
+  const name = document.getElementById('fHolidayName').value.trim();
+  if(!date){ toast(t('holDateReq'), false); return; }
+  const r = await api('/api/holidays', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({date, name}) });
+  if(r && r.ok){ toast(t('holSaved'), true); closeHolidayModal(); loadHolidays(); }
+}
+async function deleteHoliday(date){
+  if(!confirm(t('confirmDel'))) return;
+  const r = await api('/api/holidays/' + encodeURIComponent(date), { method:'DELETE' });
+  if(r && r.ok){ toast(t('holDeleted'), true); loadHolidays(); }
+}
+
+/* ================= Güvenlik / Giriş ================= */
+function showLogin(){
+  document.getElementById('loginOverlay').classList.add('show');
+  document.getElementById('loginErr').textContent = '';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+function hideLogin(){
+  document.getElementById('loginOverlay').classList.remove('show');
+  document.getElementById('logoutBtn').style.display = 'inline-block';
+}
+async function doLogin(){
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  if(!user || !pass){ document.getElementById('loginErr').textContent = t('loginBad'); return; }
+  document.getElementById('loginErr').textContent = '';
+  const r = await api('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:user, password:pass}) });
+  if(r && r.token && r.csrf){ setAuth({token:r.token, csrf:r.csrf}); hideLogin(); toast(t('evLogin'), true); }
+  else { document.getElementById('loginErr').textContent = t('loginBad'); }
+}
+async function doLogout(){
+  const r = await api('/api/auth/logout', { method:'POST' });
+  setAuth(null);
+  showLogin();
+  if(r && r.ok) toast(t('evLogout'), true);
+}
+async function loadSecurity(){
+  const d = await api('/api/config');
+  const a = (d && d.auth) || {};
+  document.getElementById('secUsername').value = a.username || '';
+  document.getElementById('secPass').value = '';
+  document.getElementById('secPass2').value = '';
+  document.getElementById('secTimeout').value = a.sessionTimeoutMin || 60;
+  document.getElementById('secEnabled').checked = a.enabled === true;
+}
+async function saveSecurity(){
+  const p1 = document.getElementById('secPass').value;
+  const p2 = document.getElementById('secPass2').value;
+  if(p1 !== p2){ toast(t('secWrongPass'), false); return; }
+  const body = { auth: {
+    username: document.getElementById('secUsername').value.trim() || 'admin',
+    sessionTimeoutMin: parseInt(document.getElementById('secTimeout').value,10) || 60,
+    enabled: document.getElementById('secEnabled').checked
+  }};
+  if(p1){ body.auth.password = p1; }
+  const r = await api('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(r && r.ok !== undefined){ toast(t('secSaved'), true); }
+}
+
+/* ================= Yedekleme ================= */
+async function exportBackup(){
+  const auth = getAuth();
+  try{
+    const r = await fetch('/api/backup', { headers: auth && auth.token ? {'X-Auth-Token':auth.token} : {} });
+    if(!r.ok){ toast(t('bkFailed'), false); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'kapikontrol-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(t('bkExported'), true);
+  }catch(e){ toast(t('bkFailed'), false); }
+}
+async function importBackup(input){
+  const file = input.files && input.files[0];
+  input.value = '';
+  if(!file) return;
+  if(!confirm(t('bkImport') + '?')) return;
+  try{
+    const text = await file.text();
+    const r = await api('/api/backup', { method:'POST', headers:{'Content-Type':'application/json'}, body: text });
+    if(r && r.ok){ toast(t('bkImported'), true); setTimeout(()=>restart(), 2000); }
+    else toast(t('bkFailed'), false);
+  }catch(e){ toast(t('bkFailed'), false); }
+}
+
+/* ================= Firmware ================= */
+async function uploadFirmware(){
+  const file = document.getElementById('fwFile').files && document.getElementById('fwFile').files[0];
+  if(!file){ toast(t('fwNoFile'), false); return; }
+  const auth = getAuth();
+  document.getElementById('fwBtn').disabled = true;
+  document.getElementById('fwProgress').style.display = 'block';
+  document.getElementById('fwBar').style.width = '0%';
+  document.getElementById('fwStatus').textContent = t('fwUploading');
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/ota', true);
+  if(auth && auth.token) xhr.setRequestHeader('X-Auth-Token', auth.token);
+  if(auth && auth.csrf) xhr.setRequestHeader('X-CSRF-Token', auth.csrf);
+  xhr.upload.onprogress = e => {
+    if(e.lengthComputable){
+      const pct = Math.round(e.loaded / e.total * 100);
+      document.getElementById('fwBar').style.width = pct + '%';
+    }
+  };
+  xhr.onload = () => {
+    let r = {};
+    try { r = JSON.parse(xhr.responseText || '{}'); } catch(e){}
+    document.getElementById('fwBtn').disabled = false;
+    if(xhr.status === 200 && (r.ok || r.success)){
+      document.getElementById('fwStatus').textContent = t('fwDone');
+      toast(t('fwDone'), true);
+      setTimeout(()=>{ location.reload(); }, 3000);
+    } else {
+      document.getElementById('fwStatus').textContent = (r.error || t('fwFailed'));
+      toast(t('fwFailed'), false);
+    }
+  };
+  xhr.onerror = () => {
+    document.getElementById('fwBtn').disabled = false;
+    document.getElementById('fwStatus').textContent = t('fwFailed');
+    toast(t('fwFailed'), false);
+  };
+  xhr.send(file);
+}
+
+/* ================= başlat ================= */
+applyI18n();
+(async function init(){
+  // 0) Footer sürümünü her sayfada göster (statik önizlemede v1.0.0 kalır)
+  api('/api/dashboard').then(d => {
+    if(d && d.system && d.system.version){
+      document.getElementById('fwVersion').textContent = 'v' + d.system.version;
+    }
+  }).catch(()=>{});
+  // 1) Kimlik doğrulama durumunu önce kontrol et (genel uç nokta, token gerektirmez)
+  const st = await api('/api/auth/status');
+  if(st && st.enabled){
+    if(st.authenticated){ hideLogin(); }
+    else { setAuth(null); showLogin(); }
+  } else {
+    setAuth(null);
+    hideLogin();
+  }
+  // 2) Yapılandırmayı yükle (kilit açıksa 401 döner, giriş ekranı zaten gösterildi)
+  const c = await api('/api/config');
+  if(!c || c.ok === false) return;
+  const unconfigured = c && (!c.wifi || !c.wifi.ssid);
+  document.getElementById('setupBanner').classList.toggle('show', !!unconfigured);
+  go(unconfigured ? 'wifi' : 'dashboard');
+  if(!unconfigured){
+    setInterval(loadDashboard, 5000);
+  }
+  // Otomatik oturum kapatma: oturum sunucuda süresi dolduysa giriş ekranını göster
+  setInterval(async () => {
+    const s = await api('/api/auth/status');
+    if(s && s.enabled && !s.authenticated){ setAuth(null); showLogin(); }
+  }, 30000);
+})();
+</script>
+</body>
+</html>

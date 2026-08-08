@@ -1,0 +1,19 @@
+# PlatformIO build artifacts
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+
+# Python demo server logs
+tools/*.log
+tools/*.err.log
+tools/__pycache__/
+__pycache__/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+*.swp
+.idea/
