@@ -127,17 +127,22 @@ bool WebServerManager::isPublicPath(const String& url) const {
 }
 
 void WebServerManager::setupRoutes() {
+  // ESPAsyncWebServer 3.x: application/json gövdesi arg("plain")'e yazılmaz;
+  // onBody callback'i ile toplanır. Body okuyan tüm POST/PUT route'larına
+  // WebServerManager::collectBody onBody olarak bağlanır (onUpload=nullptr).
   server_.on("/", HTTP_GET, [this](AsyncWebServerRequest* r) { handleIndex(r); });
   server_.on("/api/status", HTTP_GET, [this](AsyncWebServerRequest* r) { handleStatus(r); });
 
   // Kimlik doğrulama uç noktaları
-  server_.on("/api/auth/login", HTTP_POST, [this](AsyncWebServerRequest* r) { handleAuthLogin(r); });
+  server_.on("/api/auth/login", HTTP_POST, [this](AsyncWebServerRequest* r) { handleAuthLogin(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/auth/logout", HTTP_POST, [this](AsyncWebServerRequest* r) { handleAuthLogout(r); });
   server_.on("/api/auth/status", HTTP_GET, [this](AsyncWebServerRequest* r) { handleAuthStatus(r); });
 
   // Yedekleme / geri yükleme
   server_.on("/api/backup", HTTP_GET, [this](AsyncWebServerRequest* r) { handleBackupGet(r); });
-  server_.on("/api/backup", HTTP_POST, [this](AsyncWebServerRequest* r) { handleBackupPost(r); });
+  server_.on("/api/backup", HTTP_POST, [this](AsyncWebServerRequest* r) { handleBackupPost(r); },
+             nullptr, WebServerManager::collectBody);
 
   // Firmware (OTA) güncellemesi
   server_.on("/api/ota/status", HTTP_GET, [this](AsyncWebServerRequest* r) { handleOtaStatus(r); });
@@ -150,51 +155,87 @@ void WebServerManager::setupRoutes() {
 
   server_.on("/api/dashboard", HTTP_GET, [this](AsyncWebServerRequest* r) { handleDashboard(r); });
   server_.on("/api/config", HTTP_GET, [this](AsyncWebServerRequest* r) { handleConfigGet(r); });
-  server_.on("/api/config", HTTP_POST, [this](AsyncWebServerRequest* r) { handleConfigPost(r); });
+  server_.on("/api/config", HTTP_POST, [this](AsyncWebServerRequest* r) { handleConfigPost(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/wifi/scan", HTTP_GET, [this](AsyncWebServerRequest* r) { handleWifiScan(r); });
   server_.on("/api/restart", HTTP_POST, [this](AsyncWebServerRequest* r) { handleRestart(r); });
 
   server_.on("/api/users", HTTP_GET, [this](AsyncWebServerRequest* r) { handleUsersGet(r); });
-  server_.on("/api/users", HTTP_POST, [this](AsyncWebServerRequest* r) { handleUserPost(r); });
-  server_.on("/api/users/*", HTTP_PUT, [this](AsyncWebServerRequest* r) { handleUserPut(r); });
+  server_.on("/api/users", HTTP_POST, [this](AsyncWebServerRequest* r) { handleUserPost(r); },
+             nullptr, WebServerManager::collectBody);
+  server_.on("/api/users/*", HTTP_PUT, [this](AsyncWebServerRequest* r) { handleUserPut(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/users/*", HTTP_DELETE, [this](AsyncWebServerRequest* r) { handleUserDelete(r); });
 
   server_.on("/api/logs/access", HTTP_GET, [this](AsyncWebServerRequest* r) { handleLogsGet(r); });
   server_.on("/api/logs/access.csv", HTTP_GET, [this](AsyncWebServerRequest* r) { handleLogsCsv(r); });
-  server_.on("/api/logs/clear", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLogsClear(r); });
+  server_.on("/api/logs/clear", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLogsClear(r); },
+             nullptr, WebServerManager::collectBody);
 
   server_.on("/api/logs/event", HTTP_GET, [this](AsyncWebServerRequest* r) { handleEventLogsGet(r); });
   server_.on("/api/logs/event.csv", HTTP_GET, [this](AsyncWebServerRequest* r) { handleEventLogsCsv(r); });
-  server_.on("/api/logs/event/clear", HTTP_POST, [this](AsyncWebServerRequest* r) { handleEventLogsClear(r); });
+  server_.on("/api/logs/event/clear", HTTP_POST,
+             [this](AsyncWebServerRequest* r) { handleEventLogsClear(r); },
+             nullptr, WebServerManager::collectBody);
 
   server_.on("/api/mqtt", HTTP_GET, [this](AsyncWebServerRequest* r) { handleMqttGet(r); });
-  server_.on("/api/mqtt", HTTP_POST, [this](AsyncWebServerRequest* r) { handleMqttPost(r); });
+  server_.on("/api/mqtt", HTTP_POST, [this](AsyncWebServerRequest* r) { handleMqttPost(r); },
+             nullptr, WebServerManager::collectBody);
 
   server_.on("/api/gpio", HTTP_GET, [this](AsyncWebServerRequest* r) { handleGpioGet(r); });
-  server_.on("/api/gpio", HTTP_POST, [this](AsyncWebServerRequest* r) { handleGpioPost(r); });
-  server_.on("/api/gpio/action", HTTP_POST, [this](AsyncWebServerRequest* r) { handleGpioAction(r); });
+  server_.on("/api/gpio", HTTP_POST, [this](AsyncWebServerRequest* r) { handleGpioPost(r); },
+             nullptr, WebServerManager::collectBody);
+  server_.on("/api/gpio/action", HTTP_POST, [this](AsyncWebServerRequest* r) { handleGpioAction(r); },
+             nullptr, WebServerManager::collectBody);
 
   // LCD (I2C 16x2) yapılandırması / algılama / test
   server_.on("/api/lcd", HTTP_GET, [this](AsyncWebServerRequest* r) { handleLcdGet(r); });
-  server_.on("/api/lcd", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLcdPost(r); });
-  server_.on("/api/lcd/action", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLcdAction(r); });
+  server_.on("/api/lcd", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLcdPost(r); },
+             nullptr, WebServerManager::collectBody);
+  server_.on("/api/lcd/action", HTTP_POST, [this](AsyncWebServerRequest* r) { handleLcdAction(r); },
+             nullptr, WebServerManager::collectBody);
 
   server_.on("/api/rfid", HTTP_GET, [this](AsyncWebServerRequest* r) { handleRfidGet(r); });
-  server_.on("/api/rfid", HTTP_POST, [this](AsyncWebServerRequest* r) { handleRfidPost(r); });
-  server_.on("/api/rfid/enroll", HTTP_POST, [this](AsyncWebServerRequest* r) { handleRfidEnroll(r); });
+  server_.on("/api/rfid", HTTP_POST, [this](AsyncWebServerRequest* r) { handleRfidPost(r); },
+             nullptr, WebServerManager::collectBody);
+  server_.on("/api/rfid/enroll", HTTP_POST, [this](AsyncWebServerRequest* r) { handleRfidEnroll(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/rfid/enroll", HTTP_GET, [this](AsyncWebServerRequest* r) { handleRfidEnroll(r); });
 
   server_.on("/api/schedule", HTTP_GET, [this](AsyncWebServerRequest* r) { handleScheduleGet(r); });
   server_.on("/api/schedule/*", HTTP_GET, [this](AsyncWebServerRequest* r) { handleScheduleGetOne(r); });
-  server_.on("/api/schedule/*", HTTP_PUT, [this](AsyncWebServerRequest* r) { handleSchedulePut(r); });
+  server_.on("/api/schedule/*", HTTP_PUT, [this](AsyncWebServerRequest* r) { handleSchedulePut(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/schedule/*", HTTP_DELETE, [this](AsyncWebServerRequest* r) { handleScheduleDelete(r); });
 
   server_.on("/api/holidays", HTTP_GET, [this](AsyncWebServerRequest* r) { handleHolidayGet(r); });
-  server_.on("/api/holidays", HTTP_POST, [this](AsyncWebServerRequest* r) { handleHolidayPost(r); });
+  server_.on("/api/holidays", HTTP_POST, [this](AsyncWebServerRequest* r) { handleHolidayPost(r); },
+             nullptr, WebServerManager::collectBody);
   server_.on("/api/holidays/*", HTTP_DELETE, [this](AsyncWebServerRequest* r) { handleHolidayDelete(r); });
 
   server_.onNotFound([this](AsyncWebServerRequest* r) { handleNotFound(r); });
   server_.begin();
+}
+
+// ESPAsyncWebServer 3.x onBody callback'i: JSON gövde parçalarını
+// request->_tempObject içine toplar (destructor serbest bırakır).
+void WebServerManager::collectBody(AsyncWebServerRequest* request, uint8_t* data,
+                                   size_t len, size_t index, size_t total) {
+  if (total == 0 || data == nullptr) return;
+  if (request->_tempObject == nullptr) {
+    request->_tempObject = calloc(total + 1, 1);
+    if (request->_tempObject == nullptr) return;
+  }
+  memcpy(static_cast<uint8_t*>(request->_tempObject) + index, data, len);
+}
+
+// JSON gövdesini güvenli şekilde okur: önce onBody ile toplanan _tempObject'e
+// bakar, düz metin gövdeler için arg("plain") fallback'ini kullanır.
+String WebServerManager::readBody(AsyncWebServerRequest* request) {
+  if (request->_tempObject != nullptr) {
+    return String(static_cast<const char*>(request->_tempObject));
+  }
+  return request->hasArg("plain") ? request->arg("plain") : "";
 }
 
 void WebServerManager::handleIndex(AsyncWebServerRequest* request) {
@@ -343,29 +384,38 @@ void WebServerManager::handleConfigGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleConfigPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
     return;
   }
 
+  // WiFi ayarları gerçekten değiştiyse yeniden bağlanılır; aksi halde mevcut
+  // bağlantı korunur (gereksiz reconnect HTTP yanıtını da koparırdı).
+  bool wifiChanged = false;
   if (doc["wifi"].is<JsonObject>()) {
     JsonObject w = doc["wifi"];
     if (w["ssid"].is<const char*>()) {
-      cfg_->wifi.ssid = w["ssid"].as<const char*>();
+      const String v = w["ssid"].as<const char*>();
+      if (v != cfg_->wifi.ssid) {
+        cfg_->wifi.ssid = v;
+        wifiChanged = true;
+      }
     }
     if (w["password"].is<const char*>()) {
       const String p = w["password"].as<const char*>();
       // Maske ile gelen şifre, mevcut şifrenin korunduğunu belirtir
-      if (!p.isEmpty() && p != kPasswordMask) {
+      if (!p.isEmpty() && p != kPasswordMask && p != cfg_->wifi.password) {
         cfg_->wifi.password = p;
+        wifiChanged = true;
       }
     }
     if (w["hostname"].is<const char*>()) {
       const String hn = w["hostname"].as<const char*>();
-      if (!hn.isEmpty()) {
+      if (!hn.isEmpty() && hn != cfg_->wifi.hostname) {
         cfg_->wifi.hostname = hn;
+        wifiChanged = true;
       }
     }
   }
@@ -488,8 +538,12 @@ void WebServerManager::handleConfigPost(AsyncWebServerRequest* request) {
   }
   request->send(200, kContentTypeJson, "{\"ok\":true}");
 
-  // Yeni ayarlarla yeniden bağlan, saat dilimini uygula, GPIO pinlerini yeniden kur
-  wifi_->applyConfig();
+  // Yeni ayarları uygula. WiFi yalnızca gerçekten değiştiyse yeniden bağlan;
+  // yanıtın TCP'ye iletilmesi için de kısa bir an beklenir.
+  vTaskDelay(pdMS_TO_TICKS(50));
+  if (wifiChanged) {
+    wifi_->applyConfig();
+  }
   ntp_->applyConfig();
   gpio_->applyConfig(cfg_->gpio);
   rfid_->applyConfig(*cfg_);
@@ -542,7 +596,7 @@ void WebServerManager::handleRestart(AsyncWebServerRequest* request) {
 // ---------------------------------------------------------------------------
 
 void WebServerManager::handleAuthLogin(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -625,7 +679,7 @@ void WebServerManager::handleBackupGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleBackupPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     events_->add(EventType::JsonParseError, "Yedek dosyası parse edilemedi");
@@ -733,7 +787,7 @@ void WebServerManager::handleUsersGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleUserPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -773,7 +827,7 @@ void WebServerManager::handleUserPut(AsyncWebServerRequest* request) {
     return;
   }
 
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -987,7 +1041,7 @@ void WebServerManager::handleMqttGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleMqttPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1043,7 +1097,7 @@ void WebServerManager::handleRfidEnroll(AsyncWebServerRequest* request) {
     return;
   }
 
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1083,7 +1137,7 @@ void WebServerManager::handleGpioGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleGpioPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1119,7 +1173,7 @@ void WebServerManager::handleGpioPost(AsyncWebServerRequest* request) {
 
 // Test / MQTT için donanım aksiyonları: {"action":"open|close|beep|led"}
 void WebServerManager::handleGpioAction(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1173,7 +1227,7 @@ void WebServerManager::handleLcdGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleLcdPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1204,7 +1258,7 @@ void WebServerManager::handleLcdPost(AsyncWebServerRequest* request) {
 // test  -> ekrana 3 sn test mesajı göster
 // clear -> kalıcı mesajları temizle, durum satırlarına dön
 void WebServerManager::handleLcdAction(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1263,7 +1317,7 @@ void WebServerManager::handleRfidGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleRfidPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1336,7 +1390,7 @@ void WebServerManager::handleSchedulePut(AsyncWebServerRequest* request) {
     sendJsonError(request, 400, "uid is required");
     return;
   }
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");
@@ -1377,7 +1431,7 @@ void WebServerManager::handleHolidayGet(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleHolidayPost(AsyncWebServerRequest* request) {
-  const String body = request->hasArg("plain") ? request->arg("plain") : "";
+  const String body = readBody(request);
   JsonDocument doc;
   if (deserializeJson(doc, body)) {
     sendJsonError(request, 400, "Invalid JSON");

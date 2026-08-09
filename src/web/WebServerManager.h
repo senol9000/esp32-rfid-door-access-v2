@@ -58,6 +58,12 @@ class WebServerManager {
   bool isPublicPath(const String& url) const;
   bool isSafeMethod(WebRequestMethod method) const;
 
+  // ESPAsyncWebServer 3.x, application/json gövdesini arg("plain")'e yazmaz.
+  // onBody callback'i ile parçaları request->_tempObject'te toplarız.
+  static void collectBody(AsyncWebServerRequest* request, uint8_t* data, size_t len,
+                          size_t index, size_t total);
+  static String readBody(AsyncWebServerRequest* request);
+
   void handleAuthLogin(AsyncWebServerRequest* request);
   void handleAuthLogout(AsyncWebServerRequest* request);
   void handleAuthStatus(AsyncWebServerRequest* request);
