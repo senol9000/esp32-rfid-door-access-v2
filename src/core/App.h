@@ -12,6 +12,7 @@
 #include "log/EventLog.h"
 #include "mqtt/MqttManager.h"
 #include "net/WifiManager.h"
+#include "net/PingWatchdog.h"
 #include "ntp/NtpManager.h"
 #include "rfid/RfidManager.h"
 #include "scheduler/HolidayManager.h"
@@ -30,6 +31,7 @@ class App {
   AppConfig config_;
   WifiManager wifi_;
   NtpManager ntp_;
+  PingWatchdog watchdog_;
   UserManager users_;
   AccessLog accessLog_;
   EventLog events_;

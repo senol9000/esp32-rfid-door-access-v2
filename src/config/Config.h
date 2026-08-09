@@ -95,6 +95,24 @@ struct LcdConfig {
   int rows = 2;          // Satır sayısı
 };
 
+/**
+ * Ping watchdog yapılandırması.
+ *
+ * İnternet erişimini periyodik olarak ICMP ping ile denetler. Ardışık
+ * başarısız ping sayısı failCountBeforeReconnect değerine ulaşırsa WiFi
+ * yeniden bağlanır; bu durum reconnectLimit kez tekrarlanıp hâlâ çözülmezse
+ * cihaz ESP.restart() ile yeniden başlatılır (en kesin kurtarma yöntemi).
+ * Sadece STA modunda ve WiFi bağlıyken çalışır; AP kurulum modunda devre dışıdır.
+ */
+struct WatchdogConfig {
+  bool enabled = false;        // Ping watchdog açık mı?
+  String target = "8.8.8.8";   // Ping hedefi (IP adresi veya hostname)
+  int intervalSec = 60;        // Ping kontrol periyodu (saniye)
+  int timeoutMs = 3000;        // Tek ping yanıt süresi (milisaniye)
+  int failCountBeforeReconnect = 3;  // Bu kadar ardışık başarısız ping'de WiFi'yi yeniden bağlat
+  int reconnectLimit = 3;            // Bu kadar yeniden bağlanma denemesinden sonra hâlâ sorun varsa reboot
+};
+
 /** Uygulama geneli yapılandırma şeması. */
 struct AppConfig {
   WifiConfig wifi;
@@ -104,6 +122,7 @@ struct AppConfig {
   MqttConfig mqtt;
   AuthConfig auth;
   LcdConfig lcd;
+  WatchdogConfig watchdog;
 };
 
 /**

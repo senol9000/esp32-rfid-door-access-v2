@@ -20,6 +20,7 @@ void App::begin() {
 
   wifi_.begin(config_);
   ntp_.begin(config_);
+  watchdog_.begin(config_, wifi_, &events_);
   users_.begin();
   accessLog_.begin();
   events_.begin();
@@ -44,8 +45,8 @@ void App::begin() {
     access_.decide(uid);
   });
 
-  web_.begin(config_, wifi_, users_, accessLog_, ntp_, gpio_, rfid_, schedule_,
-             holidays_, events_, mqtt_, auth_, lcd_);
+  web_.begin(config_, wifi_, watchdog_, users_, accessLog_, ntp_, gpio_, rfid_,
+             schedule_, holidays_, events_, mqtt_, auth_, lcd_);
 
   events_.add(EventType::Boot, "Sistem açıldı");
   Serial.printf("[%s] Başlatma tamam. IP: %s\n", kTag, wifi_.getIp().c_str());
@@ -53,6 +54,7 @@ void App::begin() {
 
 void App::loop() {
   wifi_.loop();
+  watchdog_.loop();
   web_.loop();
   users_.loop();
   accessLog_.loop();

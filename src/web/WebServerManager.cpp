@@ -47,14 +47,15 @@ static String csvEsc(const String& v) {
   return "\"" + out + "\"";
 }
 
-void WebServerManager::begin(AppConfig& cfg, WifiManager& wifi, UserManager& users,
-                             AccessLog& accessLog, NtpManager& ntp, GpioManager& gpio,
-                             RfidManager& rfid, TimeSchedule& schedule,
-                             HolidayManager& holidays, EventLog& events,
-                             MqttManager& mqtt, AuthManager& auth,
+void WebServerManager::begin(AppConfig& cfg, WifiManager& wifi, PingWatchdog& watchdog,
+                             UserManager& users, AccessLog& accessLog,
+                             NtpManager& ntp, GpioManager& gpio, RfidManager& rfid,
+                             TimeSchedule& schedule, HolidayManager& holidays,
+                             EventLog& events, MqttManager& mqtt, AuthManager& auth,
                              LcdManager& lcd) {
   cfg_ = &cfg;
   wifi_ = &wifi;
+  watchdog_ = &watchdog;
   users_ = &users;
   accessLog_ = &accessLog;
   ntp_ = &ntp;
@@ -263,6 +264,13 @@ void WebServerManager::handleStatus(AsyncWebServerRequest* request) {
   doc["heap"] = ESP.getFreeHeap();
   doc["ntp_synced"] = ntp_->isSynced();
   doc["time"] = ntp_->currentDateTime();
+
+  JsonObject watchdog = doc["watchdog"].to<JsonObject>();
+  watchdog["enabled"] = watchdog_->isEnabled();
+  watchdog["online"] = watchdog_->isOnline();
+  watchdog["consecutiveFails"] = watchdog_->consecutiveFails();
+  watchdog["reconnects"] = watchdog_->reconnectCount();
+  watchdog["target"] = cfg_->watchdog.target;
   sendJsonDoc(request, doc);
 }
 
@@ -380,6 +388,14 @@ void WebServerManager::handleConfigGet(AsyncWebServerRequest* request) {
   lcd["address"] = cfg_->lcd.address;
   lcd["cols"] = cfg_->lcd.cols;
   lcd["rows"] = cfg_->lcd.rows;
+
+  JsonObject watchdog = doc["watchdog"].to<JsonObject>();
+  watchdog["enabled"] = cfg_->watchdog.enabled;
+  watchdog["target"] = cfg_->watchdog.target;
+  watchdog["intervalSec"] = cfg_->watchdog.intervalSec;
+  watchdog["timeoutMs"] = cfg_->watchdog.timeoutMs;
+  watchdog["failCountBeforeReconnect"] = cfg_->watchdog.failCountBeforeReconnect;
+  watchdog["reconnectLimit"] = cfg_->watchdog.reconnectLimit;
   sendJsonDoc(request, doc);
 }
 
@@ -532,6 +548,32 @@ void WebServerManager::handleConfigPost(AsyncWebServerRequest* request) {
     if (l["rows"].is<int>()) cfg_->lcd.rows = l["rows"].as<int>();
   }
 
+  // Ping watchdog ayarları.
+  if (doc["watchdog"].is<JsonObject>()) {
+    JsonObject w = doc["watchdog"];
+    if (w["enabled"].is<bool>()) cfg_->watchdog.enabled = w["enabled"].as<bool>();
+    if (w["target"].is<const char*>()) {
+      const String t = w["target"].as<const char*>();
+      if (!t.isEmpty()) cfg_->watchdog.target = t;
+    }
+    if (w["intervalSec"].is<int>()) {
+      const int v = w["intervalSec"].as<int>();
+      if (v >= 10 && v <= 3600) cfg_->watchdog.intervalSec = v;
+    }
+    if (w["timeoutMs"].is<int>()) {
+      const int v = w["timeoutMs"].as<int>();
+      if (v >= 500 && v <= 30000) cfg_->watchdog.timeoutMs = v;
+    }
+    if (w["failCountBeforeReconnect"].is<int>()) {
+      const int v = w["failCountBeforeReconnect"].as<int>();
+      if (v >= 1 && v <= 20) cfg_->watchdog.failCountBeforeReconnect = v;
+    }
+    if (w["reconnectLimit"].is<int>()) {
+      const int v = w["reconnectLimit"].as<int>();
+      if (v >= 1 && v <= 20) cfg_->watchdog.reconnectLimit = v;
+    }
+  }
+
   if (!ConfigManager::save(*cfg_)) {
     sendJsonError(request, 500, "Config save failed");
     return;
@@ -549,6 +591,7 @@ void WebServerManager::handleConfigPost(AsyncWebServerRequest* request) {
   rfid_->applyConfig(*cfg_);
   mqtt_->applyConfig(*cfg_);
   lcd_->applyConfig(*cfg_);
+  watchdog_->applyConfig();
   if (events_) {
     events_->add(EventType::ConfigSave, "Yapılandırma web üzerinden kaydedildi");
   }

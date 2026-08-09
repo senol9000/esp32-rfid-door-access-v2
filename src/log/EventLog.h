@@ -24,7 +24,9 @@ enum class EventType : uint8_t {
   FlashError,       // Flash (LittleFS) hatası
   RfidChanged,      // RFID okuyucu tipi değiştirildi
   UserAdded,        // Kullanıcı eklendi
-  UserDeleted       // Kullanıcı silindi
+  UserDeleted,      // Kullanıcı silindi
+  WatchdogWifiReset,  // Ping yanıtı yok — WiFi yeniden bağlandı
+  WatchdogReboot      // Watchdog — cihaz yeniden başlatıldı
 };
 
 /** Tek bir sistem olayı kaydı. */

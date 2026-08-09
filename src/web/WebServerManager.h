@@ -10,6 +10,7 @@
 #include "log/AccessLog.h"
 #include "log/EventLog.h"
 #include "mqtt/MqttManager.h"
+#include "net/PingWatchdog.h"
 #include "net/WifiManager.h"
 #include "ntp/NtpManager.h"
 #include "rfid/RfidManager.h"
@@ -25,17 +26,18 @@
  */
 class WebServerManager {
  public:
-  void begin(AppConfig& cfg, WifiManager& wifi, UserManager& users,
-             AccessLog& accessLog, NtpManager& ntp, GpioManager& gpio,
-             RfidManager& rfid, TimeSchedule& schedule, HolidayManager& holidays,
-             EventLog& events, MqttManager& mqtt, AuthManager& auth,
-             LcdManager& lcd);
+  void begin(AppConfig& cfg, WifiManager& wifi, PingWatchdog& watchdog,
+             UserManager& users, AccessLog& accessLog, NtpManager& ntp,
+             GpioManager& gpio, RfidManager& rfid, TimeSchedule& schedule,
+             HolidayManager& holidays, EventLog& events, MqttManager& mqtt,
+             AuthManager& auth, LcdManager& lcd);
   void loop();
 
  private:
   AsyncWebServer server_{80};
   AppConfig* cfg_ = nullptr;
   WifiManager* wifi_ = nullptr;
+  PingWatchdog* watchdog_ = nullptr;
   UserManager* users_ = nullptr;
   AccessLog* accessLog_ = nullptr;
   NtpManager* ntp_ = nullptr;

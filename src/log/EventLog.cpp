@@ -14,7 +14,8 @@ static const char* kEventTypeNames[] = {
     "wifi_disconnected", "mqtt_connected", "mqtt_error", "ntp_sync",
     "config_save", "config_restore", "firmware_update", "login",
     "logout",     "unauthorized", "json_parse_error", "flash_error",
-    "rfid_changed", "user_added", "user_deleted"};
+    "rfid_changed", "user_added", "user_deleted", "watchdog_wifi_reset",
+    "watchdog_reboot"};
 
 const char* EventLog::typeName(EventType t) {
   const int i = (int)t;

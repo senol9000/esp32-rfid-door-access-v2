@@ -275,6 +275,21 @@ td.empty{text-align:center;color:var(--muted);padding:24px}
       <input type="number" id="ntpOffset" step="15" value="180">
       <div class="check"><input type="checkbox" id="ntpDst"><span data-i18n="dst">Avrupa yaz/kış saati otomatik</span></div>
     </div>
+    <div class="card">
+      <h3 data-i18n="wdTitle">Ping Watchdog</h3>
+      <div class="wd-status" id="wdStatus" style="margin-bottom:12px"></div>
+      <div class="check"><input type="checkbox" id="wdEnabled"><span data-i18n="wdEnabled">İnternet yoksa otomatik kurtarma etkin</span></div>
+      <label data-i18n="wdTarget">Ping Hedefi (IP)</label>
+      <input id="wdTarget" placeholder="8.8.8.8" autocomplete="off">
+      <label data-i18n="wdInterval">Kontrol Aralığı (saniye)</label>
+      <input type="number" id="wdInterval" value="60" min="10" max="3600">
+      <label data-i18n="wdTimeout">Ping Zaman Aşımı (ms)</label>
+      <input type="number" id="wdTimeout" value="3000" min="500" max="30000">
+      <label data-i18n="wdFailCount">Yeniden Bağlanmadan Önce Başarısız Ping</label>
+      <input type="number" id="wdFailCount" value="3" min="1" max="20">
+      <label data-i18n="wdReconnectLimit">Yeniden Başlatmadan Önce Reconnect Limiti</label>
+      <input type="number" id="wdReconnectLimit" value="3" min="1" max="20">
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn primary" onclick="saveConfig()" data-i18n="save">Kaydet &amp; Bağlan</button>
       <button class="btn" onclick="restart()" data-i18n="restart">Yeniden Başlat</button>
@@ -600,6 +615,9 @@ const i18n = {
     addUser:'Yeni Kullanıcı', editUser:'Kullanıcıyı Düzenle', csv:'CSV İndir', clear:'Temizle', all:'Tümü', allowed:'İzin Verildi', denied:'Reddedildi',
     normal:'Normal', admin:'Admin', active:'Aktif', inactive:'Pasif', cancel:'İptal', saveUser:'Kaydet', scan:'Tara', pass:'Şifre', hostname:'Cihaz Adı', ntpTitle:'Saat Ayarları (NTP)',
     utcOffset:'UTC Ofseti (dakika)', dst:'Avrupa yaz/kış saati otomatik', save:'Kaydet & Bağlan', restart:'Yeniden Başlat',
+    wdTitle:'Ping Watchdog', wdEnabled:'İnternet yoksa otomatik kurtarma etkin', wdTarget:'Ping Hedefi (IP)', wdInterval:'Kontrol Aralığı (saniye)',
+    wdTimeout:'Ping Zaman Aşımı (ms)', wdFailCount:'Yeniden Bağlanmadan Önce Başarısız Ping', wdReconnectLimit:'Yeniden Başlatmadan Önce Reconnect Limiti',
+    wdStatusOn:'Çevrimiçi', wdStatusOff:'Çevrimdışı', wdStatusDisabled:'Watchdog kapalı', wdStatusFails:'ardışık hata', wdStatusReconnect:'reconnect',
     hwRelay:'Röle Çıkışı', hwActiveLow:'Normalde Kapalı (aktifken LOW / NC)', hwDuration:'Aktif Süresi', hwOther:'Diğer Çıkışlar / Girişler',
     hwBuzzer:'Buzzer GPIO', hwLed:'Durum LED GPIO', hwDoorSensor:'Kapı Sensörü GPIO', hwDoorActiveLow:'Kapı açıkken LOW okunur',
     hwExit:'Çıkış Butonu GPIO', hwTest:'Donanım Testi', hwOpen:'Kapıyı Aç', hwClose:'Kapat', hwBeep:'Buzzer', hwLedTest:'LED',
@@ -642,6 +660,9 @@ const i18n = {
     addUser:'Add User', editUser:'Edit User', csv:'Download CSV', clear:'Clear', all:'All', allowed:'Allowed', denied:'Denied',
     normal:'Normal', admin:'Admin', active:'Active', inactive:'Inactive', cancel:'Cancel', saveUser:'Save', scan:'Scan', pass:'Password', hostname:'Hostname', ntpTitle:'Clock (NTP)',
     utcOffset:'UTC Offset (minutes)', dst:'EU daylight saving automatically', save:'Save & Connect', restart:'Restart',
+    wdTitle:'Ping Watchdog', wdEnabled:'Auto-recovery enabled when internet is lost', wdTarget:'Ping Target (IP)', wdInterval:'Check Interval (seconds)',
+    wdTimeout:'Ping Timeout (ms)', wdFailCount:'Failed Pings Before Reconnect', wdReconnectLimit:'Reconnect Limit Before Restart',
+    wdStatusOn:'Online', wdStatusOff:'Offline', wdStatusDisabled:'Watchdog disabled', wdStatusFails:'consecutive failures', wdStatusReconnect:'reconnects',
     hwRelay:'Relay Output', hwActiveLow:'Normally Closed (active LOW / NC)', hwDuration:'Active Duration', hwOther:'Other Outputs / Inputs',
     hwBuzzer:'Buzzer GPIO', hwLed:'Status LED GPIO', hwDoorSensor:'Door Sensor GPIO', hwDoorActiveLow:'Door open reads LOW',
     hwExit:'Exit Button GPIO', hwTest:'Hardware Test', hwOpen:'Open Door', hwClose:'Close', hwBeep:'Buzzer', hwLedTest:'LED',
@@ -737,6 +758,7 @@ function go(page){
   if(page === 'logs') loadLogs();
   if(page === 'events') loadEvents();
   if(page === 'wifi') loadConfig();
+  if(page === 'wifi') loadWatchdogStatus();
   if(page === 'mqtt') loadMqtt();
   if(page === 'hardware') { loadRfid(); loadGpio(); loadLcd(); }
   if(page === 'schedules') loadSchedules();
@@ -1002,6 +1024,30 @@ async function loadConfig(){
   document.getElementById('ntpServer').value = (c.ntp && c.ntp.server) || 'pool.ntp.org';
   document.getElementById('ntpOffset').value = (c.ntp && c.ntp.utcOffsetMin) || 180;
   document.getElementById('ntpDst').checked = !!(c.ntp && c.ntp.autoDst);
+  const wd = c.watchdog || {};
+  document.getElementById('wdEnabled').checked = !!wd.enabled;
+  document.getElementById('wdTarget').value = wd.target || '8.8.8.8';
+  document.getElementById('wdInterval').value = wd.intervalSec || 60;
+  document.getElementById('wdTimeout').value = wd.timeoutMs || 3000;
+  document.getElementById('wdFailCount').value = wd.failCountBeforeReconnect || 3;
+  document.getElementById('wdReconnectLimit').value = wd.reconnectLimit || 3;
+}
+async function loadWatchdogStatus(){
+  const el = document.getElementById('wdStatus');
+  const d = await api('/api/status');
+  if(!d) return;
+  const w = d.watchdog || {};
+  if(!w.enabled){
+    el.className = 'badge mut';
+    el.textContent = t('wdStatusDisabled');
+    return;
+  }
+  const fails = w.consecutiveFails || 0;
+  const reconnects = w.reconnects || 0;
+  let label = w.online ? t('wdStatusOn') : t('wdStatusOff');
+  if(!w.online) label += ` (${fails} ${t('wdStatusFails')}, ${reconnects} ${t('wdStatusReconnect')})`;
+  el.className = 'badge ' + (w.online ? 'ok' : 'warn');
+  el.textContent = label;
 }
 function renderNetworks(s){
   const box = document.getElementById('networks');
@@ -1046,6 +1092,14 @@ async function saveConfig(){
       server: document.getElementById('ntpServer').value.trim() || 'pool.ntp.org',
       utcOffsetMin: parseInt(document.getElementById('ntpOffset').value, 10) || 180,
       autoDst: document.getElementById('ntpDst').checked
+    },
+    watchdog: {
+      enabled: document.getElementById('wdEnabled').checked,
+      target: document.getElementById('wdTarget').value.trim() || '8.8.8.8',
+      intervalSec: parseInt(document.getElementById('wdInterval').value, 10) || 60,
+      timeoutMs: parseInt(document.getElementById('wdTimeout').value, 10) || 3000,
+      failCountBeforeReconnect: parseInt(document.getElementById('wdFailCount').value, 10) || 3,
+      reconnectLimit: parseInt(document.getElementById('wdReconnectLimit').value, 10) || 3
     }
   });
   const r = await api('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body });

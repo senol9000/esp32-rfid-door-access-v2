@@ -62,6 +62,14 @@ bool ConfigManager::load(AppConfig& cfg) {
   cfg.lcd.address = doc["lcd"]["address"] | 0;
   cfg.lcd.cols = doc["lcd"]["cols"] | 16;
   cfg.lcd.rows = doc["lcd"]["rows"] | 2;
+
+  // Ping watchdog ayarları (eski kayıtlarda alan yoksa kapalı)
+  cfg.watchdog.enabled = doc["watchdog"]["enabled"] | false;
+  cfg.watchdog.target = doc["watchdog"]["target"] | "8.8.8.8";
+  cfg.watchdog.intervalSec = doc["watchdog"]["intervalSec"] | 60;
+  cfg.watchdog.timeoutMs = doc["watchdog"]["timeoutMs"] | 3000;
+  cfg.watchdog.failCountBeforeReconnect = doc["watchdog"]["failCountBeforeReconnect"] | 3;
+  cfg.watchdog.reconnectLimit = doc["watchdog"]["reconnectLimit"] | 3;
   return true;
 }
 
@@ -121,6 +129,14 @@ bool ConfigManager::save(const AppConfig& cfg) {
   lcd["address"] = cfg.lcd.address;
   lcd["cols"] = cfg.lcd.cols;
   lcd["rows"] = cfg.lcd.rows;
+
+  JsonObject watchdog = doc["watchdog"].to<JsonObject>();
+  watchdog["enabled"] = cfg.watchdog.enabled;
+  watchdog["target"] = cfg.watchdog.target;
+  watchdog["intervalSec"] = cfg.watchdog.intervalSec;
+  watchdog["timeoutMs"] = cfg.watchdog.timeoutMs;
+  watchdog["failCountBeforeReconnect"] = cfg.watchdog.failCountBeforeReconnect;
+  watchdog["reconnectLimit"] = cfg.watchdog.reconnectLimit;
 
   return JsonFile::saveAtomic(kConfigPath, doc);
 }
