@@ -427,8 +427,8 @@ td.empty{text-align:center;color:var(--muted);padding:24px}
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn primary" onclick="saveRfid()" data-i18n="hwSaveReader">Okuyucuyu Kaydet</button>
-      <button class="btn primary" onclick="saveGpio()" data-i18n="save">Kaydet (GPIO)</button>
-      <button class="btn primary" onclick="saveLcd()" data-i18n="save">Kaydet (LCD)</button>
+      <button class="btn primary" onclick="saveGpio()" data-i18n="hwSaveGpio">Kaydet (GPIO)</button>
+      <button class="btn primary" onclick="saveLcd()" data-i18n="hwSaveLcd">Kaydet (LCD)</button>
     </div>
   </section>
 
@@ -608,6 +608,7 @@ const i18n = {
     hwReader:'RFID Okuyucu', hwReaderType:'Okuyucu Tipi', hwAuto:'Otomatik Algıla', hwHzTitle:'HZ1050 — UART Ayarları', hwRcTitle:'MFRC522 — SPI Ayarları',
     hwRxPin:'RX Pin (okuyucu TX)', hwTxPin:'TX Pin (okuyucu RX)', hwBaud:'Baud Hızı', hwSckPin:'SCK Pin', hwMisoPin:'MISO Pin', hwMosiPin:'MOSI Pin',
     hwSdaPin:'SS / SDA Pin', hwRstPin:'RST Pin', hwSaveReader:'Okuyucuyu Kaydet', hwRfidSaved:'Okuyucu ayarları kaydedildi.',
+    hwSaveGpio:'Kaydet (GPIO)', hwSaveLcd:'Kaydet (LCD)',
     hwRfidReady:'Okuyucu hazır', hwRfidNoReady:'Okuyucu algılanamadı', hwRfidScan:'Algılanıyor...',
     lcdTitle:'LCD (I2C 16x2)', lcdEnable:"LCD'yi etkinleştir", lcdDetecting:'Algılanıyor...', lcdSda:'SDA Pin', lcdScl:'SCL Pin', lcdAddr:'I2C Adres (0 = otomatik, 0x27 / 0x3F yaygın)', lcdCols:'Sütun (16)', lcdRows:'Satır (2)', lcdScan:'Otomatik Algıla', lcdTest:'Test', lcdClear:'Temizle', lcdFound:'LCD bulundu', lcdNotFound:'LCD bulunamadı (pin/adres kontrol edin)', lcdDisabled:'LCD devre dışı', lcdSaved:'LCD ayarları kaydedildi.', lcdTestDone:'Test mesajı gönderildi.',
     setupHint:'Kurulum tamamlanmadı. Lütfen önce Ağ Ayarları sayfasından WiFi yapılandırın.',
@@ -649,6 +650,7 @@ const i18n = {
     hwReader:'RFID Reader', hwReaderType:'Reader Type', hwAuto:'Auto Detect', hwHzTitle:'HZ1050 — UART Settings', hwRcTitle:'MFRC522 — SPI Settings',
     hwRxPin:'RX Pin (reader TX)', hwTxPin:'TX Pin (reader RX)', hwBaud:'Baud Rate', hwSckPin:'SCK Pin', hwMisoPin:'MISO Pin', hwMosiPin:'MOSI Pin',
     hwSdaPin:'SS / SDA Pin', hwRstPin:'RST Pin', hwSaveReader:'Save Reader', hwRfidSaved:'Reader settings saved.',
+    hwSaveGpio:'Save (GPIO)', hwSaveLcd:'Save (LCD)',
     hwRfidReady:'Reader ready', hwRfidNoReady:'Reader not detected', hwRfidScan:'Detecting...',
     lcdTitle:'LCD (I2C 16x2)', lcdEnable:'Enable LCD', lcdDetecting:'Detecting...', lcdSda:'SDA Pin', lcdScl:'SCL Pin', lcdAddr:'I2C Address (0 = auto, common 0x27 / 0x3F)', lcdCols:'Columns (16)', lcdRows:'Rows (2)', lcdScan:'Auto Detect', lcdTest:'Test', lcdClear:'Clear', lcdFound:'LCD found', lcdNotFound:'LCD not found (check pins/address)', lcdDisabled:'LCD disabled', lcdSaved:'LCD settings saved.', lcdTestDone:'Test message sent.',
     setupHint:'Setup incomplete. Please configure WiFi first in the Network Settings page.',
