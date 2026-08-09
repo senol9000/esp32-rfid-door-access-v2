@@ -1,16 +1,17 @@
 #pragma once
 
 #include <Arduino.h>
-#include <DNSServer.h>
 #include <WiFi.h>
 #include "config/Config.h"
 
 /**
  * WiFi yöneticisi.
  *
- * - Yapılandırma yoksa AP moduna geçer (kurulum / captive portal).
+ * - Yapılandırma yoksa AP moduna geçer (kurulum).
  * - Yapılandırma varsa STA modunda bağlanır, koparsa otomatik yeniden bağlanır.
  * - STA zaman aşımı olursa AP moduna düşer.
+ * - Captive portal yok: AP'ye bağlanan cihazlar "internet yok" görür,
+ *   tarayıcıya otomatik yönlendirme yapılmaz; 192.168.4.1 elle girilir.
  */
 class WifiManager {
  public:
@@ -19,7 +20,7 @@ class WifiManager {
   /** Kayıtlı ayarlara göre WiFi'yi başlatır. */
   void begin(AppConfig& cfg);
 
-  /** Periyodik olarak çağrılmalı; bağlantı ve captive portal DNS'i idare eder. */
+  /** Periyodik olarak çağrılmalı; bağlantı durumunu idare eder. */
   void loop();
 
   /** Yapılandırma değiştiğinde yeniden bağlanmak için çağrılır. */
@@ -38,7 +39,6 @@ class WifiManager {
  private:
   AppConfig* cfg_ = nullptr;
   Mode mode_ = Mode::None;
-  DNSServer dns_;
   String apSsid_;
   unsigned long staStartedMs_ = 0;
   bool wasConnected_ = false;

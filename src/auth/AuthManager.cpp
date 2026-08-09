@@ -1,9 +1,8 @@
 #include "auth/AuthManager.h"
 
-#include <SHA2Builder.h>
-#include <HashBuilder.h>
-#include <PBKDF2_HMACBuilder.h>
 #include <esp_system.h>
+#include <mbedtls/md.h>
+#include <mbedtls/pkcs5.h>
 #include <time.h>
 
 // ---- Özel yardımcılar ----
@@ -26,6 +25,53 @@ String randomHex(size_t bytes) {
     }
   }
   return out;
+}
+
+/** Hex string'i bayt dizisine çevirir; işlenen bayt sayısını döndürür. */
+size_t hexToBytes(const String& hex, uint8_t* out, size_t maxLen) {
+  auto nib = [](char c) -> uint8_t {
+    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
+    if (c >= 'a' && c <= 'f') return (uint8_t)(c - 'a' + 10);
+    if (c >= 'A' && c <= 'F') return (uint8_t)(c - 'A' + 10);
+    return 0;
+  };
+  size_t len = 0;
+  for (size_t i = 0; i + 1 < hex.length() && len < maxLen; i += 2) {
+    out[len++] = (uint8_t)((nib(hex[i]) << 4) | nib(hex[i + 1]));
+  }
+  return len;
+}
+
+/** Bayt dizisini hex string'e çevirir. */
+String bytesToHex(const uint8_t* in, size_t len) {
+  static const char* kHex = "0123456789abcdef";
+  String out;
+  out.reserve(len * 2);
+  for (size_t i = 0; i < len; ++i) {
+    out += kHex[(in[i] >> 4) & 0x0F];
+    out += kHex[in[i] & 0x0F];
+  }
+  return out;
+}
+
+/**
+ * PBKDF2-HMAC-SHA256 (mbedtls).
+ * Core 3.x'te SHA2Builder/PBKDF2_HMACBuilder kaldırıldığı için mbedtls kullanılır.
+ */
+String pbkdf2Sha256(const String& password, const uint8_t* salt, size_t saltLen,
+                    uint32_t iterations, uint8_t* out, size_t outLen) {
+  mbedtls_md_context_t ctx;
+  mbedtls_md_init(&ctx);
+  const mbedtls_md_info_t* md = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (md == nullptr || mbedtls_md_setup(&ctx, md, 1) != 0) {
+    mbedtls_md_free(&ctx);
+    return String();
+  }
+  int rc = mbedtls_pkcs5_pbkdf2_hmac(&ctx, (const unsigned char*)password.c_str(),
+                                     password.length(), salt, saltLen, iterations,
+                                     outLen, out);
+  mbedtls_md_free(&ctx);
+  return rc == 0 ? bytesToHex(out, outLen) : String();
 }
 
 /** Epoch saniye (NTP senkron değilse millis tabanlı geri düşer). */
@@ -115,12 +161,13 @@ bool AuthManager::validateCsrf(const String& token, const String& csrf) const {
 }
 
 String AuthManager::hashPassword(const String& password) {
-  String salt = randomHex(8);  // 16 hex karakterlik tuz
-  SHA256Builder sha;
-  PBKDF2_HMACBuilder pbkdf2(&sha, password, salt, kPbkdf2Iterations);
-  pbkdf2.calculate();
-  String hash = pbkdf2.toString();
-  return "pbkdf2$" + String(kPbkdf2Iterations) + "$" + salt + "$" + hash;
+  String salt = randomHex(8);  // 16 hex karakterlik tuz (8 bayt)
+  uint8_t saltBytes[16];
+  size_t saltLen = hexToBytes(salt, saltBytes, sizeof(saltBytes));
+  uint8_t hash[32];
+  String hashHex =
+      pbkdf2Sha256(password, saltBytes, saltLen, kPbkdf2Iterations, hash, sizeof(hash));
+  return "pbkdf2$" + String(kPbkdf2Iterations) + "$" + salt + "$" + hashHex;
 }
 
 bool AuthManager::verifyPassword(const String& password, const String& storedHash) {
@@ -136,11 +183,17 @@ bool AuthManager::verifyPassword(const String& password, const String& storedHas
   uint32_t iters = (uint32_t)iterStr.toInt();
   if (iters == 0) return false;
 
-  SHA256Builder sha;
-  PBKDF2_HMACBuilder pbkdf2(&sha, password, salt, iters);
-  pbkdf2.calculate();
-  String actualHash = pbkdf2.toString();
-  return actualHash == expectedHash;
+  uint8_t saltBytes[16];
+  size_t saltLen = hexToBytes(salt, saltBytes, sizeof(saltBytes));
+  uint8_t actual[32];
+  String actualHex = pbkdf2Sha256(password, saltBytes, saltLen, iters, actual, sizeof(actual));
+  // Zaman-sabit (constant-time) karşılaştırma: uzunluklar eşitse hex karşılaştır.
+  if (actualHex.length() != expectedHash.length()) return false;
+  unsigned diff = 0;
+  for (size_t i = 0; i < actualHex.length(); ++i) {
+    diff |= (unsigned)(unsigned char)actualHex[i] ^ (unsigned)(unsigned char)expectedHash[i];
+  }
+  return diff == 0;
 }
 
 bool AuthManager::isLoginAllowed(const String& ip) const {

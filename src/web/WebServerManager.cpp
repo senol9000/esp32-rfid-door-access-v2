@@ -199,14 +199,10 @@ void WebServerManager::setupRoutes() {
 
 void WebServerManager::handleIndex(AsyncWebServerRequest* request) {
   // LittleFS üzerindeki hazır panel sayfasını sun (data/index.html)
+  // Stream: dosyayı bellekten okumak yerine doğrudan gönderir (büyük dosyalar için güvenli).
   if (LittleFS.exists("/index.html")) {
-    File f = LittleFS.open("/index.html", "r");
-    if (f) {
-      String html = f.readString();
-      f.close();
-      request->send(200, kContentTypeHtml, html);
-      return;
-    }
+    request->send(LittleFS, "/index.html", kContentTypeHtml);
+    return;
   }
   request->send(200, kContentTypeHtml,
                 F("<html><body style='font-family:sans-serif;background:#0f172a;color:#e2e8f0'>"
@@ -1414,11 +1410,7 @@ void WebServerManager::handleHolidayDelete(AsyncWebServerRequest* request) {
 }
 
 void WebServerManager::handleNotFound(AsyncWebServerRequest* request) {
-  // AP modunda web sayfaları kurulum sayfasına yönlendirilir (captive portal),
-  // ancak /api çağrıları JSON 404 döndürmelidir.
-  if (wifi_->isApMode() && !request->url().startsWith("/api/")) {
-    request->redirect("/");
-  } else {
-    request->send(404, "text/plain", "Not Found");
-  }
+  // Captive portal yok: bilinmeyen yollar 404 döndürür, otomatik yönlendirme yapılmaz.
+  (void)request;
+  request->send(404, "text/plain", "Not Found");
 }

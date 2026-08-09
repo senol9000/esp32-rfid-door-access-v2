@@ -28,27 +28,31 @@ void WifiManager::startSta() {
 void WifiManager::startAp() {
   mode_ = Mode::Ap;
 
-  // SSID'ye MAC'in son 3 baytını ekleyerek benzersiz bir isim oluştur
+  WiFi.mode(WIFI_AP);
+
+  // SSID'ye MAC'in son 3 baytını ekleyerek benzersiz bir isim oluştur.
+  // Dikkat: macAddress() yalnızca WiFi radyosu başlatıldıktan (mode) SONRA
+  // geçerli değer döndürür; aksi halde "ESP32-Door-000000" üretilir.
   uint8_t mac[6];
   WiFi.macAddress(mac);
   char suffix[7];
   snprintf(suffix, sizeof(suffix), "%02X%02X%02X", mac[3], mac[4], mac[5]);
   apSsid_ = "ESP32-Door-" + String(suffix);
 
-  WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                     IPAddress(255, 255, 255, 0));
-  WiFi.softAP(apSsid_.c_str());
+  bool apOk = WiFi.softAP(apSsid_.c_str());
 
-  // Captive portal: tüm DNS sorgularını kendi IP'mize yönlendir
-  dns_.start(53, "*", IPAddress(192, 168, 4, 1));
+  // Captive portal YOK: DNS yönlendirmesi kullanılmaz, böylece cihazlar
+  // "oturum açmalı ağ" yerine normal bir ağ görür. Panoya 192.168.4.1 elle girilir.
 
-  Serial.printf("[NET] AP modu aktif. SSID=%s IP=192.168.4.1\n", apSsid_.c_str());
+  Serial.printf("[NET] AP modu aktif. SSID=%s IP=%s ch=%d apOk=%d\n",
+                apSsid_.c_str(), WiFi.softAPIP().toString().c_str(),
+                WiFi.channel(), apOk);
 }
 
 void WifiManager::loop() {
   if (mode_ == Mode::Ap) {
-    dns_.processNextRequest();
     return;
   }
 
@@ -78,7 +82,7 @@ void WifiManager::loop() {
 
 void WifiManager::applyConfig() {
   if (mode_ == Mode::Ap) {
-    dns_.stop();
+    WiFi.softAPdisconnect(true);
   } else if (mode_ == Mode::Sta) {
     WiFi.disconnect();
   }

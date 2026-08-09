@@ -17,3 +17,5 @@ Thumbs.db
 # IDE
 *.swp
 .idea/
+
+data/config.json
